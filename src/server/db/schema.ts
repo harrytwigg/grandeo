@@ -173,18 +173,48 @@ export const statements = createTable(
 			.text({ length: 255 })
 			.notNull()
 			.references(() => currentAccounts.id),
-		statementDate: d.integer({ mode: "timestamp" }).notNull(),
-		periodStartDate: d.integer({ mode: "timestamp" }).notNull(),
-		periodEndDate: d.integer({ mode: "timestamp" }).notNull(),
-		openingBalance: d.real().notNull(),
-		closingBalance: d.real().notNull(),
+		periodStartDate: d.integer({ mode: "timestamp" }),
+		periodEndDate: d.integer({ mode: "timestamp" }),
+		openingBalance: d.real(),
+		closingBalance: d.real(),
+		sourceFileName: d.text({ length: 255 }).notNull(),
+		sourcePathDataBucket: d.text({ length: 255 }).notNull(),
 		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
 	(t) => [
 		index("statement_account_idx").on(t.currentAccountId),
-		index("statement_date_idx").on(t.statementDate),
 		index("statement_period_idx").on(t.periodStartDate, t.periodEndDate),
+	],
+);
+
+export const transactions = createTable(
+	"transaction",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		currentAccountId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => currentAccounts.id),
+		expenseCategoryId: d
+			.text({ length: 255 })
+			.references(() => expenseCategories.id),
+		amountInPounds: d.real().notNull(), // Positive for credits, negative for debits
+		description: d.text({ length: 500 }),
+		date: d.integer({ mode: "timestamp" }).notNull(),
+		handled: d.integer({ mode: "boolean" }).notNull().default(false),
+		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+	}),
+	(t) => [
+		index("transaction_account_idx").on(t.currentAccountId),
+		index("transaction_date_idx").on(t.date),
+		index("transaction_account_date_idx").on(t.currentAccountId, t.date),
+		index("transaction_expense_category_idx").on(t.expenseCategoryId),
 	],
 );
 
@@ -219,6 +249,7 @@ export const expenseCategoriesRelations = relations(
 	expenseCategories,
 	({ many }) => ({
 		recurringExpenses: many(recurringExpenses),
+		transactions: many(transactions),
 	}),
 );
 
@@ -228,6 +259,7 @@ export const currentAccountsRelations = relations(
 		recurringExpenses: many(recurringExpenses),
 		recordedAccountBalances: many(recordedAccountBalances),
 		statements: many(statements),
+		transactions: many(transactions),
 	}),
 );
 
@@ -245,5 +277,16 @@ export const statementsRelations = relations(statements, ({ one }) => ({
 	currentAccount: one(currentAccounts, {
 		fields: [statements.currentAccountId],
 		references: [currentAccounts.id],
+	}),
+}));
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+	currentAccount: one(currentAccounts, {
+		fields: [transactions.currentAccountId],
+		references: [currentAccounts.id],
+	}),
+	expenseCategory: one(expenseCategories, {
+		fields: [transactions.expenseCategoryId],
+		references: [expenseCategories.id],
 	}),
 }));

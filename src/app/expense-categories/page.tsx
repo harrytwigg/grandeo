@@ -130,7 +130,7 @@ export default function CategoriesPage() {
 					<div className="space-y-1">
 						<h1 className="font-bold text-2xl">Expense Categories</h1>
 						<p className="text-muted-foreground">
-							Manage your expense categories to better organize your spending.
+							Manage your sexpense categories to better organize your spending.
 						</p>
 					</div>
 					<Dialog

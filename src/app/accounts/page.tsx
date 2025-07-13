@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardLayout } from "grandeo/components/dashboard-layout";
 import {
 	Card,
@@ -55,10 +56,12 @@ import {
 	CreditCardIcon,
 	CalendarIcon,
 	BuildingIcon,
+	EyeIcon,
 } from "lucide-react";
 import { api } from "grandeo/trpc/react";
 
 export default function CurrentAccountsPage() {
+	const router = useRouter();
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [editingAccount, setEditingAccount] = useState<{
@@ -67,7 +70,9 @@ export default function CurrentAccountsPage() {
 		accountType: string;
 	} | null>(null);
 	const [newAccountName, setNewAccountName] = useState("");
-	const [newAccountType, setNewAccountType] = useState<"current_account" | "credit_card">("current_account");
+	const [newAccountType, setNewAccountType] = useState<
+		"current_account" | "credit_card"
+	>("current_account");
 
 	// TRPC queries and mutations
 	const {
@@ -101,18 +106,22 @@ export default function CurrentAccountsPage() {
 
 	const handleCreateAccount = () => {
 		if (newAccountName.trim()) {
-			createAccount.mutate({ 
+			createAccount.mutate({
 				name: newAccountName.trim(),
-				accountType: newAccountType 
+				accountType: newAccountType,
 			});
 		}
 	};
 
-	const handleEditAccount = (account: { id: string; name: string; accountType?: string }) => {
+	const handleEditAccount = (account: {
+		id: string;
+		name: string;
+		accountType?: string;
+	}) => {
 		setEditingAccount({
 			id: account.id,
 			name: account.name,
-			accountType: account.accountType || "current_account"
+			accountType: account.accountType || "current_account",
 		});
 		setIsEditDialogOpen(true);
 	};
@@ -122,7 +131,9 @@ export default function CurrentAccountsPage() {
 			updateAccount.mutate({
 				id: editingAccount.id,
 				name: editingAccount.name.trim(),
-				accountType: editingAccount.accountType as "current_account" | "credit_card",
+				accountType: editingAccount.accountType as
+					| "current_account"
+					| "credit_card",
 			});
 		}
 	};
@@ -184,12 +195,19 @@ export default function CurrentAccountsPage() {
 								</div>
 								<div className="space-y-2">
 									<Label htmlFor="accountType">Account Type</Label>
-									<Select value={newAccountType} onValueChange={(value: "current_account" | "credit_card") => setNewAccountType(value)}>
+									<Select
+										value={newAccountType}
+										onValueChange={(value: "current_account" | "credit_card") =>
+											setNewAccountType(value)
+										}
+									>
 										<SelectTrigger>
 											<SelectValue placeholder="Select account type" />
 										</SelectTrigger>
 										<SelectContent>
-											<SelectItem value="current_account">Current Account</SelectItem>
+											<SelectItem value="current_account">
+												Current Account
+											</SelectItem>
 											<SelectItem value="credit_card">Credit Card</SelectItem>
 										</SelectContent>
 									</Select>
@@ -224,20 +242,22 @@ export default function CurrentAccountsPage() {
 						</CardHeader>
 						<CardContent>
 							<div className="font-bold text-2xl">{accounts?.length ?? 0}</div>
-							<p className="text-muted-foreground text-xs">
-								Active accounts
-							</p>
+							<p className="text-muted-foreground text-xs">Active accounts</p>
 						</CardContent>
 					</Card>
 
 					<Card>
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="font-medium text-sm">Current Accounts</CardTitle>
+							<CardTitle className="font-medium text-sm">
+								Current Accounts
+							</CardTitle>
 							<BuildingIcon className="h-4 w-4 text-muted-foreground" />
 						</CardHeader>
 						<CardContent>
 							<div className="font-bold text-2xl">
-								{accounts?.filter(acc => acc.accountType === "current_account").length ?? 0}
+								{accounts?.filter(
+									(acc) => acc.accountType === "current_account",
+								).length ?? 0}
 							</div>
 							<p className="text-muted-foreground text-xs">
 								Bank current accounts
@@ -247,12 +267,15 @@ export default function CurrentAccountsPage() {
 
 					<Card>
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="font-medium text-sm">Credit Cards</CardTitle>
+							<CardTitle className="font-medium text-sm">
+								Credit Cards
+							</CardTitle>
 							<CreditCardIcon className="h-4 w-4 text-muted-foreground" />
 						</CardHeader>
 						<CardContent>
 							<div className="font-bold text-2xl">
-								{accounts?.filter(acc => acc.accountType === "credit_card").length ?? 0}
+								{accounts?.filter((acc) => acc.accountType === "credit_card")
+									.length ?? 0}
 							</div>
 							<p className="text-muted-foreground text-xs">
 								Credit card accounts
@@ -305,15 +328,29 @@ export default function CurrentAccountsPage() {
 										<TableRow key={account.id}>
 											<TableCell className="font-medium">
 												<div className="flex items-center gap-2">
-													<Badge variant="outline">
+													<Badge
+														variant="outline"
+														className="cursor-pointer hover:bg-muted"
+														onClick={() =>
+															router.push(`/accounts/${account.id}`)
+														}
+													>
 														<BuildingIcon className="mr-1 h-3 w-3" />
 														{account.name}
 													</Badge>
 												</div>
 											</TableCell>
 											<TableCell>
-												<Badge variant={account.accountType === "credit_card" ? "destructive" : "default"}>
-													{account.accountType === "credit_card" ? "Credit Card" : "Current Account"}
+												<Badge
+													variant={
+														account.accountType === "credit_card"
+															? "destructive"
+															: "default"
+													}
+												>
+													{account.accountType === "credit_card"
+														? "Credit Card"
+														: "Current Account"}
 												</Badge>
 											</TableCell>
 											<TableCell className="text-muted-foreground">
@@ -328,6 +365,15 @@ export default function CurrentAccountsPage() {
 											</TableCell>
 											<TableCell className="text-right">
 												<div className="flex justify-end gap-2">
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() =>
+															router.push(`/accounts/${account.id}`)
+														}
+													>
+														<EyeIcon className="h-4 w-4" />
+													</Button>
 													<Button
 														variant="outline"
 														size="sm"
@@ -376,7 +422,7 @@ export default function CurrentAccountsPage() {
 								<CreditCardIcon className="mx-auto h-12 w-12 text-muted-foreground" />
 								<h3 className="mt-4 font-semibold text-lg">No accounts yet</h3>
 								<p className="mb-4 text-muted-foreground">
-									Get started by adding your first bank account.
+									Get started by adding your first account.
 								</p>
 								<Button onClick={() => setIsCreateDialogOpen(true)}>
 									<PlusIcon className="mr-2 h-4 w-4" />
@@ -413,9 +459,9 @@ export default function CurrentAccountsPage() {
 							</div>
 							<div className="space-y-2">
 								<Label htmlFor="editAccountType">Account Type</Label>
-								<Select 
-									value={editingAccount?.accountType ?? "current_account"} 
-									onValueChange={(value: "current_account" | "credit_card") => 
+								<Select
+									value={editingAccount?.accountType ?? "current_account"}
+									onValueChange={(value: "current_account" | "credit_card") =>
 										setEditingAccount((prev) =>
 											prev ? { ...prev, accountType: value } : null,
 										)
@@ -425,7 +471,9 @@ export default function CurrentAccountsPage() {
 										<SelectValue placeholder="Select account type" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="current_account">Current Account</SelectItem>
+										<SelectItem value="current_account">
+											Current Account
+										</SelectItem>
 										<SelectItem value="credit_card">Credit Card</SelectItem>
 									</SelectContent>
 								</Select>

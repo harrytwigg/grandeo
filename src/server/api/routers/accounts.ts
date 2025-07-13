@@ -20,7 +20,8 @@ export const accountsRouter = createTRPCRouter({
 				.select()
 				.from(currentAccounts)
 				.where(eq(currentAccounts.id, input.id))
-				.limit(1);
+				.limit(1)
+				.then((res) => res[0]);
 		}),
 
 	create: publicProcedure

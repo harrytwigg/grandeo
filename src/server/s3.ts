@@ -2,6 +2,7 @@ import {
 	S3Client,
 	GetObjectCommand,
 	PutObjectCommand,
+	DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { env } from "grandeo/env";
 
@@ -74,6 +75,25 @@ export const uploadFileToS3 = async (
 		return key;
 	} catch (error) {
 		console.error("Error uploading file to S3:", error);
+		throw error;
+	}
+};
+
+/**
+ * Delete a file from S3 bucket
+ * @param key - The key/path of the file to delete
+ * @returns Promise<void>
+ */
+export const deleteFileFromS3 = async (key: string): Promise<void> => {
+	try {
+		const command = new DeleteObjectCommand({
+			Bucket: env.DATA_BUCKET_NAME,
+			Key: key,
+		});
+
+		await s3Client.send(command);
+	} catch (error) {
+		console.error("Error deleting file from S3:", error);
 		throw error;
 	}
 };
