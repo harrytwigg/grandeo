@@ -1,4 +1,4 @@
-import { TableCell, TableRow } from "grandeo/components/ui/table";
+import { Checkbox } from "grandeo/components/ui/checkbox";
 import {
 	Select,
 	SelectContent,
@@ -6,9 +6,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "grandeo/components/ui/select";
-import { Checkbox } from "grandeo/components/ui/checkbox";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { TableCell, TableRow } from "grandeo/components/ui/table";
 import { api } from "grandeo/trpc/react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { TransactionSplitDialog } from "./transaction-split-dialog";
 
 interface Transaction {

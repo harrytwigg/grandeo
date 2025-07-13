@@ -1,20 +1,20 @@
-import { z } from "zod";
-import mime from "mime-types";
+import type { Client } from "@libsql/client";
+import { and, count, desc, eq, gte, lte, ne } from "drizzle-orm";
+import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import {
 	createTRPCRouter,
 	protectedProcedure,
 	publicProcedure,
 } from "grandeo/server/api/trpc";
+import { processFileWithSchema } from "grandeo/server/bedrock";
 import { statements, transactions } from "grandeo/server/db/schema";
-import { eq, desc, and, lte, gte, ne, count } from "drizzle-orm";
 import {
 	deleteFileFromS3,
 	getFileFromS3,
 	uploadFileToS3,
 } from "grandeo/server/s3";
-import { processFileWithSchema } from "grandeo/server/bedrock";
-import type { LibSQLDatabase } from "drizzle-orm/libsql";
-import type { Client } from "@libsql/client";
+import mime from "mime-types";
+import { z } from "zod";
 
 // What we want to extract from the file
 const statementSchema = z.object({
@@ -130,7 +130,10 @@ export const statementsRouter = createTRPCRouter({
 					transactionCount: count(transactions.id),
 				})
 				.from(statements)
-				.leftJoin(transactions, eq(transactions.sourceStatementId, statements.id))
+				.leftJoin(
+					transactions,
+					eq(transactions.sourceStatementId, statements.id),
+				)
 				.where(eq(statements.currentAccountId, input.accountId))
 				.groupBy(statements.id)
 				.orderBy(desc(statements.periodEndDate));

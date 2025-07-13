@@ -1,3 +1,4 @@
+import { DashboardLayout } from "grandeo/components/dashboard-layout";
 import {
 	Card,
 	CardContent,
@@ -5,15 +6,14 @@ import {
 	CardHeader,
 	CardTitle,
 } from "grandeo/components/ui/card";
-import { DashboardLayout } from "grandeo/components/dashboard-layout";
 import {
-	CreditCardIcon,
-	PiggyBankIcon,
-	TrendingUpIcon,
-	WalletIcon,
 	BarChart3Icon,
 	CalendarIcon,
+	CreditCardIcon,
+	PiggyBankIcon,
 	PlusIcon,
+	TrendingUpIcon,
+	WalletIcon,
 } from "lucide-react";
 
 export default function Home() {

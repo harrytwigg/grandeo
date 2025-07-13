@@ -1,8 +1,8 @@
 {
 	"version": "6",
 	"dialect": "sqlite",
-	"id": "1466d47e-1ae0-4ef1-9d90-7d34be544a5c",
-	"prevId": "00000000-0000-0000-0000-000000000000",
+	"id": "03aa9dbb-5435-4fc4-bcd7-6f3b6a6f276d",
+	"prevId": "1466d47e-1ae0-4ef1-9d90-7d34be544a5c",
 	"tables": {
 		"grandeo_account": {
 			"name": "grandeo_account",
@@ -596,6 +596,13 @@
 					"notNull": false,
 					"autoincrement": false
 				},
+				"sourceAccountId": {
+					"name": "sourceAccountId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
 				"currentAccountId": {
 					"name": "currentAccountId",
 					"type": "text(255)",
@@ -640,6 +647,11 @@
 					"columns": ["sourceTransactionId"],
 					"isUnique": false
 				},
+				"transaction_split_source_account_idx": {
+					"name": "transaction_split_source_account_idx",
+					"columns": ["sourceAccountId"],
+					"isUnique": false
+				},
 				"transaction_split_account_idx": {
 					"name": "transaction_split_account_idx",
 					"columns": ["currentAccountId"],
@@ -654,6 +666,15 @@
 					"columnsFrom": ["sourceTransactionId"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"grandeo_transaction_split_sourceAccountId_grandeo_current_account_id_fk": {
+					"name": "grandeo_transaction_split_sourceAccountId_grandeo_current_account_id_fk",
+					"tableFrom": "grandeo_transaction_split",
+					"tableTo": "grandeo_current_account",
+					"columnsFrom": ["sourceAccountId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
 					"onUpdate": "no action"
 				},
 				"grandeo_transaction_split_currentAccountId_grandeo_current_account_id_fk": {

@@ -1,6 +1,6 @@
-import Link from "next/link";
+import { Button } from "grandeo/components/ui/button";
+import { Separator } from "grandeo/components/ui/separator";
 import {
-	SidebarProvider,
 	Sidebar,
 	SidebarContent,
 	SidebarGroup,
@@ -11,21 +11,28 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	SidebarProvider,
 	SidebarTrigger,
 } from "grandeo/components/ui/sidebar";
-import { Button } from "grandeo/components/ui/button";
-import { Separator } from "grandeo/components/ui/separator";
 import {
-	HomeIcon,
-	CreditCardIcon,
-	PiggyBankIcon,
-	TrendingUpIcon,
-	SettingsIcon,
-	WalletIcon,
 	BarChart3Icon,
 	CalendarIcon,
+	CreditCardIcon,
+	HomeIcon,
+	PiggyBankIcon,
 	PlusIcon,
+	SettingsIcon,
+	TrendingUpIcon,
+	WalletIcon,
 } from "lucide-react";
+import {
+	SignInButton,
+	SignUpButton,
+	SignedIn,
+	SignedOut,
+	UserButton,
+} from "@clerk/nextjs";
+import Link from "next/link";
 
 interface DashboardLayoutProps {
 	children: React.ReactNode;
@@ -122,17 +129,6 @@ export function DashboardLayout({
 									<SidebarMenuItem>
 										<SidebarMenuButton asChild>
 											<Link
-												href="/accounts"
-												className="flex items-center gap-3"
-											>
-												<CreditCardIcon className="h-4 w-4" />
-												<span>Accounts</span>
-											</Link>
-										</SidebarMenuButton>
-									</SidebarMenuItem>
-									<SidebarMenuItem>
-										<SidebarMenuButton asChild>
-											<Link
 												href="/expense-categories"
 												className="flex items-center gap-3"
 											>
@@ -144,6 +140,34 @@ export function DashboardLayout({
 								</SidebarMenu>
 							</SidebarGroupContent>
 						</SidebarGroup>
+
+						{/* Auth Section at the bottom */}
+						<div className="mt-auto border-t p-4">
+							<SignedOut>
+								<div className="space-y-2">
+									<SignInButton>
+										<Button
+											variant="outline"
+											size="sm"
+											className="w-full justify-start"
+										>
+											Sign In
+										</Button>
+									</SignInButton>
+									<SignUpButton>
+										<Button
+											size="sm"
+											className="w-full justify-start bg-primary text-primary-foreground hover:bg-primary/90"
+										>
+											Sign Up
+										</Button>
+									</SignUpButton>
+								</div>
+							</SignedOut>
+							<SignedIn>
+								<UserButton showName />
+							</SignedIn>
+						</div>
 					</SidebarContent>
 				</Sidebar>
 

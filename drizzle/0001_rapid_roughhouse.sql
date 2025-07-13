@@ -1,0 +1,2 @@
+ALTER TABLE `grandeo_transaction_split` ADD `sourceAccountId` text(255) REFERENCES grandeo_current_account(id);--> statement-breakpoint
+CREATE INDEX `transaction_split_source_account_idx` ON `grandeo_transaction_split` (`sourceAccountId`);

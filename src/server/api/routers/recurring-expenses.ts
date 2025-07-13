@@ -1,16 +1,16 @@
 import { z } from "zod";
 
+import { eq } from "drizzle-orm";
 import {
 	createTRPCRouter,
 	protectedProcedure,
 	publicProcedure,
 } from "grandeo/server/api/trpc";
 import {
-	recurringExpenses,
-	expenseCategories,
 	currentAccounts,
+	expenseCategories,
+	recurringExpenses,
 } from "grandeo/server/db/schema";
-import { eq } from "drizzle-orm";
 
 export const recurringExpensesRouter = createTRPCRouter({
 	getAll: publicProcedure.query(({ ctx }) => {

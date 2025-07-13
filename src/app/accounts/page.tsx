@@ -1,34 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { DashboardLayout } from "grandeo/components/dashboard-layout";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "grandeo/components/ui/card";
-import { Button } from "grandeo/components/ui/button";
-import { Input } from "grandeo/components/ui/input";
-import { Label } from "grandeo/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "grandeo/components/ui/select";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "grandeo/components/ui/dialog";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -40,6 +12,33 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "grandeo/components/ui/alert-dialog";
+import { Badge } from "grandeo/components/ui/badge";
+import { Button } from "grandeo/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "grandeo/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "grandeo/components/ui/dialog";
+import { Input } from "grandeo/components/ui/input";
+import { Label } from "grandeo/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "grandeo/components/ui/select";
 import {
 	Table,
 	TableBody,
@@ -48,17 +47,18 @@ import {
 	TableHeader,
 	TableRow,
 } from "grandeo/components/ui/table";
-import { Badge } from "grandeo/components/ui/badge";
-import {
-	PlusIcon,
-	EditIcon,
-	TrashIcon,
-	CreditCardIcon,
-	CalendarIcon,
-	BuildingIcon,
-	EyeIcon,
-} from "lucide-react";
 import { api } from "grandeo/trpc/react";
+import {
+	BuildingIcon,
+	CalendarIcon,
+	CreditCardIcon,
+	EditIcon,
+	EyeIcon,
+	PlusIcon,
+	TrashIcon,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function CurrentAccountsPage() {
 	const router = useRouter();

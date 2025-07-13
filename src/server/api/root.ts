@@ -1,5 +1,5 @@
-import { expenseCategoriesRouter } from "grandeo/server/api/routers/expense-categories";
 import { accountsRouter } from "grandeo/server/api/routers/accounts";
+import { expenseCategoriesRouter } from "grandeo/server/api/routers/expense-categories";
 import { recurringExpensesRouter } from "grandeo/server/api/routers/recurring-expenses";
 import { statementsRouter } from "grandeo/server/api/routers/statements";
 import { transactionsRouter } from "grandeo/server/api/routers/transactions";

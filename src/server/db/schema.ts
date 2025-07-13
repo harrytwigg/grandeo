@@ -1,6 +1,5 @@
 import { relations, sql } from "drizzle-orm";
 import { index, primaryKey, sqliteTableCreator } from "drizzle-orm/sqlite-core";
-import type { AdapterAccount } from "next-auth/adapters";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
@@ -9,57 +8,6 @@ import type { AdapterAccount } from "next-auth/adapters";
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
  */
 export const createTable = sqliteTableCreator((name) => `grandeo_${name}`);
-
-export const users = createTable("user", (d) => ({
-	id: d
-		.text({ length: 255 })
-		.notNull()
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	name: d.text({ length: 255 }),
-	email: d.text({ length: 255 }).notNull(),
-	emailVerified: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
-	image: d.text({ length: 255 }),
-}));
-
-export const accounts = createTable(
-	"account",
-	(d) => ({
-		userId: d
-			.text({ length: 255 })
-			.notNull()
-			.references(() => users.id),
-		type: d.text({ length: 255 }).$type<AdapterAccount["type"]>().notNull(),
-		provider: d.text({ length: 255 }).notNull(),
-		providerAccountId: d.text({ length: 255 }).notNull(),
-		refresh_token: d.text(),
-		access_token: d.text(),
-		expires_at: d.integer(),
-		token_type: d.text({ length: 255 }),
-		scope: d.text({ length: 255 }),
-		id_token: d.text(),
-		session_state: d.text({ length: 255 }),
-	}),
-	(t) => [
-		primaryKey({
-			columns: [t.provider, t.providerAccountId],
-		}),
-		index("account_user_id_idx").on(t.userId),
-	],
-);
-
-export const sessions = createTable(
-	"session",
-	(d) => ({
-		sessionToken: d.text({ length: 255 }).notNull().primaryKey(),
-		userId: d
-			.text({ length: 255 })
-			.notNull()
-			.references(() => users.id),
-		expires: d.integer({ mode: "timestamp" }).notNull(),
-	}),
-	(t) => [index("session_userId_idx").on(t.userId)],
-);
 
 export const verificationTokens = createTable(
 	"verification_token",
@@ -137,8 +85,8 @@ export const recurringExpenses = createTable(
 	],
 );
 
-export const recordedAccountBalances = createTable(
-	"recorded_account_balance",
+export const accountBalances = createTable(
+	"account_balance",
 	(d) => ({
 		id: d
 			.text({ length: 255 })
@@ -149,15 +97,15 @@ export const recordedAccountBalances = createTable(
 			.text({ length: 255 })
 			.notNull()
 			.references(() => currentAccounts.id),
-		amountInPounds: d.real().notNull(),
 		date: d.integer({ mode: "timestamp" }).notNull(),
+		balance: d.real().notNull(),
 		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
 	(t) => [
-		index("recorded_balance_account_idx").on(t.currentAccountId),
-		index("recorded_balance_date_idx").on(t.date),
-		index("recorded_balance_account_date_idx").on(t.currentAccountId, t.date),
+		index("account_balance_account_idx").on(t.currentAccountId),
+		index("account_balance_date_idx").on(t.date),
+		index("account_balance_account_date_idx").on(t.currentAccountId, t.date),
 	],
 );
 
@@ -200,9 +148,7 @@ export const transactions = createTable(
 			.text({ length: 255 })
 			.notNull()
 			.references(() => currentAccounts.id),
-		sourceStatementId: d
-			.text({ length: 255 })
-			.references(() => statements.id),
+		sourceStatementId: d.text({ length: 255 }).references(() => statements.id),
 		expenseCategoryId: d
 			.text({ length: 255 })
 			.references(() => expenseCategories.id),
@@ -232,34 +178,25 @@ export const transactionSplits = createTable(
 			.$defaultFn(() => crypto.randomUUID()),
 		sourceTransactionId: d
 			.text({ length: 255 })
-			.references(() => transactions.id, { onDelete: "cascade" }),
+			.references(() => transactions.id, { onDelete: "cascade" }), // Optional - null for standalone splits
+		sourceAccountId: d
+			.text({ length: 255 })
+			.references(() => currentAccounts.id), // For standalone splits - the account this split is from
 		currentAccountId: d
 			.text({ length: 255 })
 			.notNull()
 			.references(() => currentAccounts.id),
-		amountInPounds: d.real().notNull(), // Must sum to original transaction amount
-		description: d.text({ length: 500 }), // Optional override
+		amountInPounds: d.real().notNull(), // Must sum to original transaction amount (for linked splits) or standalone amount
+		description: d.text({ length: 500 }), // Optional override or main description for standalone splits
 		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
 	(t) => [
 		index("transaction_split_source_transaction_idx").on(t.sourceTransactionId),
+		index("transaction_split_source_account_idx").on(t.sourceAccountId),
 		index("transaction_split_account_idx").on(t.currentAccountId),
 	],
 );
-
-export const usersRelations = relations(users, ({ many }) => ({
-	accounts: many(accounts),
-	currentAccounts: many(currentAccounts),
-}));
-
-export const accountsRelations = relations(accounts, ({ one }) => ({
-	user: one(users, { fields: [accounts.userId], references: [users.id] }),
-}));
-
-export const sessionsRelations = relations(sessions, ({ one }) => ({
-	user: one(users, { fields: [sessions.userId], references: [users.id] }),
-}));
 
 export const recurringExpensesRelations = relations(
 	recurringExpenses,
@@ -287,17 +224,17 @@ export const currentAccountsRelations = relations(
 	currentAccounts,
 	({ many }) => ({
 		recurringExpenses: many(recurringExpenses),
-		recordedAccountBalances: many(recordedAccountBalances),
+		accountBalances: many(accountBalances),
 		statements: many(statements),
 		transactions: many(transactions),
 	}),
 );
 
-export const recordedAccountBalancesRelations = relations(
-	recordedAccountBalances,
+export const accountBalancesRelations = relations(
+	accountBalances,
 	({ one }) => ({
 		currentAccount: one(currentAccounts, {
-			fields: [recordedAccountBalances.currentAccountId],
+			fields: [accountBalances.currentAccountId],
 			references: [currentAccounts.id],
 		}),
 	}),
@@ -336,7 +273,11 @@ export const transactionSplitsRelations = relations(
 		transaction: one(transactions, {
 			fields: [transactionSplits.sourceTransactionId],
 			references: [transactions.id],
-		}),
+		}), // Optional - will be null for standalone splits
+		sourceAccount: one(currentAccounts, {
+			fields: [transactionSplits.sourceAccountId],
+			references: [currentAccounts.id],
+		}), // For standalone splits - the account this split is from
 		currentAccount: one(currentAccounts, {
 			fields: [transactionSplits.currentAccountId],
 			references: [currentAccounts.id],

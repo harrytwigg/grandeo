@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { Button } from "grandeo/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -7,7 +7,6 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "grandeo/components/ui/dialog";
-import { Button } from "grandeo/components/ui/button";
 import { Input } from "grandeo/components/ui/input";
 import { Label } from "grandeo/components/ui/label";
 import {
@@ -18,8 +17,9 @@ import {
 	SelectValue,
 } from "grandeo/components/ui/select";
 import { Textarea } from "grandeo/components/ui/textarea";
-import { Trash2, Plus, Split } from "lucide-react";
 import { api } from "grandeo/trpc/react";
+import { Plus, Split, Trash2 } from "lucide-react";
+import React, { useState } from "react";
 
 interface TransactionSplit {
 	id?: string;

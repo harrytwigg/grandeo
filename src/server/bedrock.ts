@@ -1,14 +1,14 @@
 import {
 	BedrockRuntimeClient,
-	InvokeModelCommand,
-	ConverseCommand,
 	type ContentBlock,
+	ConverseCommand,
+	InvokeModelCommand,
 	type Message,
 } from "@aws-sdk/client-bedrock-runtime";
 import { env } from "grandeo/env";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { ResultAsync, errAsync, okAsync } from "neverthrow";
 import type { z } from "zod";
-import { ResultAsync, okAsync, errAsync } from "neverthrow";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Initialize Bedrock client
 const bedrockClient = new BedrockRuntimeClient({
@@ -20,7 +20,7 @@ const bedrockClient = new BedrockRuntimeClient({
 });
 
 // Claude 3.5 Sonnet model ID (supports document and image processing via Converse API)
-const CLAUDE_3_5_SONNET_MODEL_ID = "anthropic.claude-3-sonnet-20240229-v1:0";
+const CLAUDE_3_5_SONNET_MODEL_ID = "anthropic.claude-3-7-sonnet-20250219-v1:0";
 
 /**
  * Process a file with Claude 3 Sonnet (helper function)
@@ -243,7 +243,7 @@ export const askClaudeWithFile = ({
 				inferenceConfig: {
 					temperature: 0.7,
 					topP: 1,
-					maxTokens: 4096,
+					maxTokens: 20000,
 				},
 				...(systemPrompt && { system: [{ text: systemPrompt }] }),
 			};
