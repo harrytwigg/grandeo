@@ -6,7 +6,7 @@ import {
 	publicProcedure,
 } from "grandeo/server/api/trpc";
 import { statements, transactions } from "grandeo/server/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, lte, gte, ne, count } from "drizzle-orm";
 import {
 	deleteFileFromS3,
 	getFileFromS3,
@@ -113,12 +113,29 @@ const statementSchema = z.object({
 export const statementsRouter = createTRPCRouter({
 	getByAccountId: publicProcedure
 		.input(z.object({ accountId: z.string() }))
-		.query(({ ctx, input }) => {
-			return ctx.db
-				.select()
+		.query(async ({ ctx, input }) => {
+			// Get statements with transaction count
+			const statementsWithCount = await ctx.db
+				.select({
+					id: statements.id,
+					currentAccountId: statements.currentAccountId,
+					periodStartDate: statements.periodStartDate,
+					periodEndDate: statements.periodEndDate,
+					openingBalance: statements.openingBalance,
+					closingBalance: statements.closingBalance,
+					sourceFileName: statements.sourceFileName,
+					sourcePathDataBucket: statements.sourcePathDataBucket,
+					createdAt: statements.createdAt,
+					updatedAt: statements.updatedAt,
+					transactionCount: count(transactions.id),
+				})
 				.from(statements)
+				.leftJoin(transactions, eq(transactions.sourceStatementId, statements.id))
 				.where(eq(statements.currentAccountId, input.accountId))
+				.groupBy(statements.id)
 				.orderBy(desc(statements.periodEndDate));
+
+			return statementsWithCount;
 		}),
 
 	getById: publicProcedure
@@ -296,22 +313,53 @@ const handleParseStatement = async ({
 		})
 		.where(eq(statements.id, id));
 
-	// Create transaction records from parsed data
+	// Create transaction records from parsed data, checking for duplicates per transaction
 	if (parsedTransactions && parsedTransactions.length > 0) {
-		const transactionRecords = parsedTransactions
-			.filter(
-				(transaction): transaction is typeof transaction & { date: Date } =>
-					transaction.date !== null,
-			)
-			.map((transaction) => ({
-				currentAccountId: statement.currentAccountId,
-				amountInPounds: transaction.amount,
-				description: transaction.description,
-				date: transaction.date,
-			}));
+		const validTransactions = parsedTransactions.filter(
+			(transaction): transaction is typeof transaction & { date: Date } =>
+				transaction.date !== null,
+		);
 
-		if (transactionRecords.length > 0) {
-			await db.insert(transactions).values(transactionRecords);
+		const newTransactionRecords = [];
+		let duplicateCount = 0;
+
+		for (const transaction of validTransactions) {
+			// Check if there are any existing statements (other than this one) that cover this transaction date
+			const existingStatements = await db
+				.select()
+				.from(statements)
+				.where(
+					and(
+						eq(statements.currentAccountId, statement.currentAccountId),
+						ne(statements.id, id), // Exclude the current statement
+						lte(statements.periodStartDate, transaction.date),
+						gte(statements.periodEndDate, transaction.date),
+					),
+				)
+				.limit(1);
+
+			// Only add the transaction if no existing statement covers this date
+			if (existingStatements.length === 0) {
+				newTransactionRecords.push({
+					currentAccountId: statement.currentAccountId,
+					sourceStatementId: id,
+					amountInPounds: transaction.amount,
+					description: transaction.description,
+					date: transaction.date,
+				});
+			} else {
+				duplicateCount++;
+			}
 		}
+
+		// Insert only the non-duplicate transactions
+		if (newTransactionRecords.length > 0) {
+			await db.insert(transactions).values(newTransactionRecords);
+		}
+
+		// Log summary of what was processed
+		console.log(
+			`Statement ${id} processing complete: ${newTransactionRecords.length} new transactions added, ${duplicateCount} transactions skipped (covered by existing statements)`,
+		);
 	}
 };

@@ -108,6 +108,7 @@ CREATE INDEX `transaction_split_account_idx` ON `grandeo_transaction_split` (`cu
 CREATE TABLE `grandeo_transaction` (
 	`id` text(255) PRIMARY KEY NOT NULL,
 	`currentAccountId` text(255) NOT NULL,
+	`sourceStatementId` text(255),
 	`expenseCategoryId` text(255),
 	`amountInPounds` real NOT NULL,
 	`description` text(500),
@@ -116,6 +117,7 @@ CREATE TABLE `grandeo_transaction` (
 	`createdAt` integer DEFAULT (unixepoch()),
 	`updatedAt` integer DEFAULT (unixepoch()),
 	FOREIGN KEY (`currentAccountId`) REFERENCES `grandeo_current_account`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`sourceStatementId`) REFERENCES `grandeo_statement`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`expenseCategoryId`) REFERENCES `grandeo_expense_category`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -123,6 +125,7 @@ CREATE INDEX `transaction_account_idx` ON `grandeo_transaction` (`currentAccount
 CREATE INDEX `transaction_date_idx` ON `grandeo_transaction` (`date`);--> statement-breakpoint
 CREATE INDEX `transaction_account_date_idx` ON `grandeo_transaction` (`currentAccountId`,`date`);--> statement-breakpoint
 CREATE INDEX `transaction_expense_category_idx` ON `grandeo_transaction` (`expenseCategoryId`);--> statement-breakpoint
+CREATE INDEX `transaction_source_statement_idx` ON `grandeo_transaction` (`sourceStatementId`);--> statement-breakpoint
 CREATE TABLE `grandeo_user` (
 	`id` text(255) PRIMARY KEY NOT NULL,
 	`name` text(255),

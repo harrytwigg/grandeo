@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "49c32646-cf73-4979-aebf-a2d83b3c888c",
+  "id": "1466d47e-1ae0-4ef1-9d90-7d34be544a5c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "grandeo_account": {
@@ -760,6 +760,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "sourceStatementId": {
+          "name": "sourceStatementId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "expenseCategoryId": {
           "name": "expenseCategoryId",
           "type": "text(255)",
@@ -842,6 +849,13 @@
             "expenseCategoryId"
           ],
           "isUnique": false
+        },
+        "transaction_source_statement_idx": {
+          "name": "transaction_source_statement_idx",
+          "columns": [
+            "sourceStatementId"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -851,6 +865,19 @@
           "tableTo": "grandeo_current_account",
           "columnsFrom": [
             "currentAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "grandeo_transaction_sourceStatementId_grandeo_statement_id_fk": {
+          "name": "grandeo_transaction_sourceStatementId_grandeo_statement_id_fk",
+          "tableFrom": "grandeo_transaction",
+          "tableTo": "grandeo_statement",
+          "columnsFrom": [
+            "sourceStatementId"
           ],
           "columnsTo": [
             "id"

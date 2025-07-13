@@ -1,4 +1,4 @@
-import { many, relations, sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { index, primaryKey, sqliteTableCreator } from "drizzle-orm/sqlite-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
@@ -200,6 +200,9 @@ export const transactions = createTable(
 			.text({ length: 255 })
 			.notNull()
 			.references(() => currentAccounts.id),
+		sourceStatementId: d
+			.text({ length: 255 })
+			.references(() => statements.id),
 		expenseCategoryId: d
 			.text({ length: 255 })
 			.references(() => expenseCategories.id),
@@ -215,6 +218,7 @@ export const transactions = createTable(
 		index("transaction_date_idx").on(t.date),
 		index("transaction_account_date_idx").on(t.currentAccountId, t.date),
 		index("transaction_expense_category_idx").on(t.expenseCategoryId),
+		index("transaction_source_statement_idx").on(t.sourceStatementId),
 	],
 );
 
@@ -299,11 +303,12 @@ export const recordedAccountBalancesRelations = relations(
 	}),
 );
 
-export const statementsRelations = relations(statements, ({ one }) => ({
+export const statementsRelations = relations(statements, ({ one, many }) => ({
 	currentAccount: one(currentAccounts, {
 		fields: [statements.currentAccountId],
 		references: [currentAccounts.id],
 	}),
+	transactions: many(transactions),
 }));
 
 export const transactionsRelations = relations(
@@ -316,6 +321,10 @@ export const transactionsRelations = relations(
 		expenseCategory: one(expenseCategories, {
 			fields: [transactions.expenseCategoryId],
 			references: [expenseCategories.id],
+		}),
+		sourceStatement: one(statements, {
+			fields: [transactions.sourceStatementId],
+			references: [statements.id],
 		}),
 		splits: many(transactionSplits),
 	}),

@@ -464,6 +464,7 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 												<TableHead>Period</TableHead>
 												<TableHead>Opening Balance</TableHead>
 												<TableHead>Closing Balance</TableHead>
+												<TableHead>Transactions</TableHead>
 												<TableHead>File</TableHead>
 												<TableHead className="text-right">Actions</TableHead>
 											</TableRow>
@@ -518,6 +519,16 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 																Not parsed
 															</span>
 														)}
+													</TableCell>
+													<TableCell>
+														<div className="flex items-center gap-2">
+															<span className="font-medium text-sm">
+																{statement.transactionCount || 0}
+															</span>
+															<span className="text-muted-foreground text-xs">
+																transactions
+															</span>
+														</div>
 													</TableCell>
 													<TableCell>
 														<div className="flex items-center gap-2">
