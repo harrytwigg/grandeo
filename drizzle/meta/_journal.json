@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1752329100621,
-      "tag": "0000_overrated_quicksilver",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1752337038995,
-      "tag": "0001_flawless_the_hood",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1752338258255,
-      "tag": "0002_uneven_tarantula",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1752339292697,
-      "tag": "0003_lush_wallflower",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1752354568205,
-      "tag": "0004_fair_vector",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1752355897540,
-      "tag": "0005_concerned_starjammers",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1752356513451,
-      "tag": "0006_thick_lethal_legion",
+      "when": 1752387496206,
+      "tag": "0000_empty_firestar",
       "breakpoints": true
     }
   ]

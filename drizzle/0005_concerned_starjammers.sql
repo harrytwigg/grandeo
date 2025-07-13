@@ -1,2 +1,0 @@
-ALTER TABLE `grandeo_transaction` ADD `expenseCategoryId` text(255) REFERENCES grandeo_expense_category(id);--> statement-breakpoint
-CREATE INDEX `transaction_expense_category_idx` ON `grandeo_transaction` (`expenseCategoryId`);

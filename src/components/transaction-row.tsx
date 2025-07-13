@@ -9,6 +9,7 @@ import {
 import { Checkbox } from "grandeo/components/ui/checkbox";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { api } from "grandeo/trpc/react";
+import { TransactionSplitDialog } from "./transaction-split-dialog";
 
 interface Transaction {
 	id: string;
@@ -16,6 +17,7 @@ interface Transaction {
 	description: string | null;
 	amountInPounds: number;
 	handled: boolean;
+	currentAccountId: string;
 	expenseCategory?: {
 		id: string;
 		name: string;
@@ -26,15 +28,22 @@ interface TransactionRowProps {
 	transaction: Transaction;
 	onCategoryChange?: (transactionId: string, categoryId: string | null) => void;
 	onHandledChange?: (transactionId: string, handled: boolean) => void;
+	onSplitsChange?: () => void;
 }
 
 export function TransactionRow({
 	transaction,
 	onCategoryChange,
 	onHandledChange,
+	onSplitsChange,
 }: TransactionRowProps) {
 	// Get all expense categories for the dropdown
 	const { data: expenseCategories } = api.expenseCategories.getAll.useQuery();
+
+	// Get splits for this transaction to show indicator
+	const { data: splits } = api.transactions.getSplitsByTransactionId.useQuery({
+		transactionId: transaction.id,
+	});
 
 	// Mutation for updating expense category
 	const updateExpenseCategory =
@@ -71,6 +80,7 @@ export function TransactionRow({
 			handled: checked,
 		});
 	};
+
 	const formatCurrency = (amount: number) => {
 		return new Intl.NumberFormat("en-GB", {
 			style: "currency",
@@ -125,16 +135,23 @@ export function TransactionRow({
 				</div>
 			</TableCell>
 			<TableCell className="text-right">
-				<span
-					className={
-						transaction.amountInPounds >= 0
-							? "font-medium text-green-600"
-							: "font-medium text-red-600"
-					}
-				>
-					{transaction.amountInPounds >= 0 ? "+" : ""}
-					{formatCurrency(transaction.amountInPounds)}
-				</span>
+				<div className="flex flex-col items-end gap-1">
+					<span
+						className={
+							transaction.amountInPounds >= 0
+								? "font-medium text-green-600"
+								: "font-medium text-red-600"
+						}
+					>
+						{transaction.amountInPounds >= 0 ? "+" : ""}
+						{formatCurrency(transaction.amountInPounds)}
+					</span>
+					{splits && splits.length > 0 && (
+						<span className="text-muted-foreground text-xs">
+							Split across {splits.length} accounts
+						</span>
+					)}
+				</div>
 			</TableCell>
 			<TableCell>
 				<div className="flex items-center gap-2">
@@ -147,6 +164,12 @@ export function TransactionRow({
 						<Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
 					)}
 				</div>
+			</TableCell>
+			<TableCell>
+				<TransactionSplitDialog
+					transaction={transaction}
+					onSplitsCreated={onSplitsChange}
+				/>
 			</TableCell>
 		</TableRow>
 	);

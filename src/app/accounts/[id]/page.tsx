@@ -92,6 +92,15 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 		refetch: refetchTransactions,
 	} = api.transactions.getByAccountId.useQuery({ accountId: params.id });
 
+	// Get owed balance for this account (splits to other accounts)
+	const {
+		data: owedBalance,
+		isLoading: isLoadingOwedBalance,
+		refetch: refetchOwedBalance,
+	} = api.transactions.getOwedBalanceByAccountId.useQuery({
+		accountId: params.id,
+	});
+
 	// Mutations
 	const deleteStatement = api.statements.delete.useMutation({
 		onSuccess: () => {
@@ -190,6 +199,10 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 	};
 
 	const formatCurrency = (amount: number) => {
+		if (amount === 0) {
+			return "£0.00";
+		}
+
 		return new Intl.NumberFormat("en-GB", {
 			style: "currency",
 			currency: "GBP",
@@ -205,7 +218,12 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 		});
 	};
 
-	if (isLoadingAccount || isLoadingStatements || isLoadingTransactions) {
+	if (
+		isLoadingAccount ||
+		isLoadingStatements ||
+		isLoadingTransactions ||
+		isLoadingOwedBalance
+	) {
 		return (
 			<DashboardLayout title="Account Details" showAddButton={false}>
 				<div className="flex items-center justify-center py-12">
@@ -237,7 +255,6 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 	}
 
 	const currentAccount = account;
-	const totalStatements = statements?.length || 0;
 	const totalTransactions = transactions?.length || 0;
 	const latestStatement = statements?.[0];
 	const currentBalance = latestStatement?.closingBalance ?? null;
@@ -319,20 +336,33 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 					<Card>
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 							<CardTitle className="font-medium text-sm">
-								Quick Actions
+								Owed Balance
 							</CardTitle>
-							<PlusIcon className="h-4 w-4 text-muted-foreground" />
+							<PoundSterlingIcon
+								className={`h-4 w-4 ${(owedBalance ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}
+							/>
 						</CardHeader>
 						<CardContent>
-							<Button
-								variant="outline"
-								size="sm"
-								className="w-full"
-								onClick={() => setIsUploadDialogOpen(true)}
+							<div
+								className={`font-bold text-2xl ${
+									owedBalance === 0
+										? "text-muted-foreground"
+										: (owedBalance ?? 0) > 0
+											? "text-green-600"
+											: "text-red-600"
+								}`}
 							>
-								<UploadIcon className="mr-2 h-4 w-4" />
-								Upload Statement
-							</Button>
+								{owedBalance !== null && owedBalance !== undefined
+									? formatCurrency(owedBalance)
+									: formatCurrency(0)}
+							</div>
+							<p className="text-muted-foreground text-xs">
+								{owedBalance === 0
+									? "No money is owed between accounts"
+									: (owedBalance ?? 0) > 0
+										? "Other accounts owe this account money"
+										: "This account owes money to other accounts"}
+							</p>
 						</CardContent>
 					</Card>
 				</div>
@@ -594,8 +624,9 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 												<TableHead>Date</TableHead>
 												<TableHead>Description</TableHead>
 												<TableHead>Expense Category</TableHead>
-												<TableHead className="text-right">Amount</TableHead>
+												<TableHead>Amount</TableHead>
 												<TableHead>Handled</TableHead>
+												<TableHead className="text-right">Actions</TableHead>
 											</TableRow>
 										</TableHeader>
 										<TableBody>
@@ -610,6 +641,11 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 													onHandledChange={() => {
 														// Refetch transactions when handled status changes
 														refetchTransactions();
+													}}
+													onSplitsChange={() => {
+														// Refetch transactions and owed balance when splits are created/deleted
+														refetchTransactions();
+														refetchOwedBalance();
 													}}
 												/>
 											))}

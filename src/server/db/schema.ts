@@ -1,4 +1,4 @@
-import { relations, sql } from "drizzle-orm";
+import { many, relations, sql } from "drizzle-orm";
 import { index, primaryKey, sqliteTableCreator } from "drizzle-orm/sqlite-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
@@ -218,6 +218,32 @@ export const transactions = createTable(
 	],
 );
 
+export const transactionSplits = createTable(
+	"transaction_split",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		sourceTransactionId: d
+			.text({ length: 255 })
+			.references(() => transactions.id, { onDelete: "cascade" }),
+		currentAccountId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => currentAccounts.id),
+		amountInPounds: d.real().notNull(), // Must sum to original transaction amount
+		description: d.text({ length: 500 }), // Optional override
+		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+	}),
+	(t) => [
+		index("transaction_split_source_transaction_idx").on(t.sourceTransactionId),
+		index("transaction_split_account_idx").on(t.currentAccountId),
+	],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
 	accounts: many(accounts),
 	currentAccounts: many(currentAccounts),
@@ -280,13 +306,31 @@ export const statementsRelations = relations(statements, ({ one }) => ({
 	}),
 }));
 
-export const transactionsRelations = relations(transactions, ({ one }) => ({
-	currentAccount: one(currentAccounts, {
-		fields: [transactions.currentAccountId],
-		references: [currentAccounts.id],
+export const transactionsRelations = relations(
+	transactions,
+	({ one, many }) => ({
+		currentAccount: one(currentAccounts, {
+			fields: [transactions.currentAccountId],
+			references: [currentAccounts.id],
+		}),
+		expenseCategory: one(expenseCategories, {
+			fields: [transactions.expenseCategoryId],
+			references: [expenseCategories.id],
+		}),
+		splits: many(transactionSplits),
 	}),
-	expenseCategory: one(expenseCategories, {
-		fields: [transactions.expenseCategoryId],
-		references: [expenseCategories.id],
+);
+
+export const transactionSplitsRelations = relations(
+	transactionSplits,
+	({ one }) => ({
+		transaction: one(transactions, {
+			fields: [transactionSplits.sourceTransactionId],
+			references: [transactions.id],
+		}),
+		currentAccount: one(currentAccounts, {
+			fields: [transactionSplits.currentAccountId],
+			references: [currentAccounts.id],
+		}),
 	}),
-}));
+);

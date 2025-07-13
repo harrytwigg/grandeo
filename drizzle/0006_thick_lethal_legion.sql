@@ -1,1 +1,0 @@
-ALTER TABLE `grandeo_transaction` ADD `handled` integer DEFAULT false NOT NULL;

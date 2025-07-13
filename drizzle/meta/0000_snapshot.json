@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "34df3e17-8e76-423c-9569-864a9800adbf",
+  "id": "49c32646-cf73-4979-aebf-a2d83b3c888c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "grandeo_account": {
@@ -545,37 +545,44 @@
           "notNull": true,
           "autoincrement": false
         },
-        "statementDate": {
-          "name": "statementDate",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "periodStartDate": {
           "name": "periodStartDate",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "periodEndDate": {
           "name": "periodEndDate",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "openingBalance": {
           "name": "openingBalance",
           "type": "real",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "closingBalance": {
           "name": "closingBalance",
           "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sourceFileName": {
+          "name": "sourceFileName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sourcePathDataBucket": {
+          "name": "sourcePathDataBucket",
+          "type": "text(255)",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -605,13 +612,6 @@
           ],
           "isUnique": false
         },
-        "statement_date_idx": {
-          "name": "statement_date_idx",
-          "columns": [
-            "statementDate"
-          ],
-          "isUnique": false
-        },
         "statement_period_idx": {
           "name": "statement_period_idx",
           "columns": [
@@ -628,6 +628,242 @@
           "tableTo": "grandeo_current_account",
           "columnsFrom": [
             "currentAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_transaction_split": {
+      "name": "grandeo_transaction_split",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sourceTransactionId": {
+          "name": "sourceTransactionId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "currentAccountId": {
+          "name": "currentAccountId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amountInPounds": {
+          "name": "amountInPounds",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "transaction_split_source_transaction_idx": {
+          "name": "transaction_split_source_transaction_idx",
+          "columns": [
+            "sourceTransactionId"
+          ],
+          "isUnique": false
+        },
+        "transaction_split_account_idx": {
+          "name": "transaction_split_account_idx",
+          "columns": [
+            "currentAccountId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_transaction_split_sourceTransactionId_grandeo_transaction_id_fk": {
+          "name": "grandeo_transaction_split_sourceTransactionId_grandeo_transaction_id_fk",
+          "tableFrom": "grandeo_transaction_split",
+          "tableTo": "grandeo_transaction",
+          "columnsFrom": [
+            "sourceTransactionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "grandeo_transaction_split_currentAccountId_grandeo_current_account_id_fk": {
+          "name": "grandeo_transaction_split_currentAccountId_grandeo_current_account_id_fk",
+          "tableFrom": "grandeo_transaction_split",
+          "tableTo": "grandeo_current_account",
+          "columnsFrom": [
+            "currentAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_transaction": {
+      "name": "grandeo_transaction",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentAccountId": {
+          "name": "currentAccountId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expenseCategoryId": {
+          "name": "expenseCategoryId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "amountInPounds": {
+          "name": "amountInPounds",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "handled": {
+          "name": "handled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "transaction_account_idx": {
+          "name": "transaction_account_idx",
+          "columns": [
+            "currentAccountId"
+          ],
+          "isUnique": false
+        },
+        "transaction_date_idx": {
+          "name": "transaction_date_idx",
+          "columns": [
+            "date"
+          ],
+          "isUnique": false
+        },
+        "transaction_account_date_idx": {
+          "name": "transaction_account_date_idx",
+          "columns": [
+            "currentAccountId",
+            "date"
+          ],
+          "isUnique": false
+        },
+        "transaction_expense_category_idx": {
+          "name": "transaction_expense_category_idx",
+          "columns": [
+            "expenseCategoryId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_transaction_currentAccountId_grandeo_current_account_id_fk": {
+          "name": "grandeo_transaction_currentAccountId_grandeo_current_account_id_fk",
+          "tableFrom": "grandeo_transaction",
+          "tableTo": "grandeo_current_account",
+          "columnsFrom": [
+            "currentAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "grandeo_transaction_expenseCategoryId_grandeo_expense_category_id_fk": {
+          "name": "grandeo_transaction_expenseCategoryId_grandeo_expense_category_id_fk",
+          "tableFrom": "grandeo_transaction",
+          "tableTo": "grandeo_expense_category",
+          "columnsFrom": [
+            "expenseCategoryId"
           ],
           "columnsTo": [
             "id"
