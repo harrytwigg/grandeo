@@ -40,7 +40,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "grandeo/components/ui/table";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import {
 	CalendarIcon,
 	EditIcon,
@@ -51,6 +51,7 @@ import {
 import { useState } from "react";
 
 export default function CategoriesPage() {
+	const workspaceApi = useWorkspaceApi();
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [editingCategory, setEditingCategory] = useState<{
@@ -59,38 +60,23 @@ export default function CategoriesPage() {
 	} | null>(null);
 	const [newCategoryName, setNewCategoryName] = useState("");
 
-	// TRPC queries and mutations
+	// TRPC queries and mutations using workspace-scoped API
 	const {
 		data: categories,
 		isLoading,
 		refetch,
-	} = api.expenseCategories.getAll.useQuery();
+	} = workspaceApi.expenseCategories.getAll();
 
-	const createCategory = api.expenseCategories.create.useMutation({
-		onSuccess: () => {
-			refetch();
-			setIsCreateDialogOpen(false);
-			setNewCategoryName("");
-		},
-	});
-
-	const updateCategory = api.expenseCategories.update.useMutation({
-		onSuccess: () => {
-			refetch();
-			setIsEditDialogOpen(false);
-			setEditingCategory(null);
-		},
-	});
-
-	const deleteCategory = api.expenseCategories.delete.useMutation({
-		onSuccess: () => {
-			refetch();
-		},
-	});
+	const createCategory = workspaceApi.expenseCategories.create();
+	const updateCategory = workspaceApi.expenseCategories.update();
+	const deleteCategory = workspaceApi.expenseCategories.delete();
 
 	const handleCreateCategory = () => {
-		if (newCategoryName.trim()) {
-			createCategory.mutate({ name: newCategoryName.trim() });
+		if (newCategoryName.trim() && workspaceApi.workspaceId) {
+			createCategory.mutate({ 
+				name: newCategoryName.trim(),
+				workspaceId: workspaceApi.workspaceId
+			});
 		}
 	};
 
@@ -100,16 +86,22 @@ export default function CategoriesPage() {
 	};
 
 	const handleUpdateCategory = () => {
-		if (editingCategory?.name.trim()) {
+		if (editingCategory?.name.trim() && workspaceApi.workspaceId) {
 			updateCategory.mutate({
 				id: editingCategory.id,
 				name: editingCategory.name.trim(),
+				workspaceId: workspaceApi.workspaceId,
 			});
 		}
 	};
 
 	const handleDeleteCategory = (id: string) => {
-		deleteCategory.mutate({ id });
+		if (workspaceApi.workspaceId) {
+			deleteCategory.mutate({ 
+				id,
+				workspaceId: workspaceApi.workspaceId,
+			});
+		}
 	};
 
 	if (isLoading) {
@@ -269,7 +261,9 @@ export default function CategoriesPage() {
 												</div>
 											</TableCell>
 											<TableCell className="text-muted-foreground">
-												{new Date(category.createdAt).toLocaleDateString()}
+												{category.createdAt 
+													? new Date(category.createdAt).toLocaleDateString()
+													: "N/A"}
 											</TableCell>
 											<TableCell className="text-muted-foreground">
 												{category.updatedAt

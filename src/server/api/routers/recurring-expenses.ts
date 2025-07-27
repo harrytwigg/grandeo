@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
 	createTRPCRouter,
 	protectedProcedure,
@@ -13,50 +13,59 @@ import {
 } from "grandeo/server/db/schema";
 
 export const recurringExpensesRouter = createTRPCRouter({
-	getAll: publicProcedure.query(({ ctx }) => {
-		return ctx.db
-			.select({
-				id: recurringExpenses.id,
-				name: recurringExpenses.name,
-				amountInPounds: recurringExpenses.amountInPounds,
-				startDate: recurringExpenses.startDate,
-				endDate: recurringExpenses.endDate,
-				frequency: recurringExpenses.frequency,
-				createdAt: recurringExpenses.createdAt,
-				updatedAt: recurringExpenses.updatedAt,
-				expenseCategory: {
-					id: expenseCategories.id,
-					name: expenseCategories.name,
-				},
-				currentAccount: {
-					id: currentAccounts.id,
-					name: currentAccounts.name,
-				},
-			})
-			.from(recurringExpenses)
-			.leftJoin(
-				expenseCategories,
-				eq(recurringExpenses.expenseCategoryId, expenseCategories.id),
-			)
-			.leftJoin(
-				currentAccounts,
-				eq(recurringExpenses.currentAccountId, currentAccounts.id),
-			);
-	}),
+	getAll: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.query(({ ctx, input }) => {
+			return ctx.db
+				.select({
+					id: recurringExpenses.id,
+					name: recurringExpenses.name,
+					amountInPounds: recurringExpenses.amountInPounds,
+					startDate: recurringExpenses.startDate,
+					endDate: recurringExpenses.endDate,
+					frequency: recurringExpenses.frequency,
+					createdAt: recurringExpenses.createdAt,
+					updatedAt: recurringExpenses.updatedAt,
+					expenseCategory: {
+						id: expenseCategories.id,
+						name: expenseCategories.name,
+					},
+					currentAccount: {
+						id: currentAccounts.id,
+						name: currentAccounts.name,
+					},
+				})
+				.from(recurringExpenses)
+				.leftJoin(
+					expenseCategories,
+					eq(recurringExpenses.expenseCategoryId, expenseCategories.id),
+				)
+				.leftJoin(
+					currentAccounts,
+					eq(recurringExpenses.currentAccountId, currentAccounts.id),
+				)
+				.where(eq(recurringExpenses.workspaceId, input.workspaceId));
+		}),
 
-	getById: publicProcedure
-		.input(z.object({ id: z.string() }))
+	getById: protectedProcedure
+		.input(z.object({ id: z.string(), workspaceId: z.string() }))
 		.query(({ ctx, input }) => {
 			return ctx.db
 				.select()
 				.from(recurringExpenses)
-				.where(eq(recurringExpenses.id, input.id))
+				.where(
+					and(
+						eq(recurringExpenses.id, input.id),
+						eq(recurringExpenses.workspaceId, input.workspaceId),
+					),
+				)
 				.limit(1);
 		}),
 
-	create: publicProcedure
+	create: protectedProcedure
 		.input(
 			z.object({
+				workspaceId: z.string(),
 				name: z.string().min(1, "Name is required"),
 				amountInPounds: z.number().min(0.01, "Amount must be greater than 0"),
 				expenseCategoryId: z.string().min(1, "Expense category is required"),
@@ -68,6 +77,7 @@ export const recurringExpensesRouter = createTRPCRouter({
 		)
 		.mutation(({ ctx, input }) => {
 			return ctx.db.insert(recurringExpenses).values({
+				workspaceId: input.workspaceId,
 				name: input.name,
 				amountInPounds: input.amountInPounds,
 				expenseCategoryId: input.expenseCategoryId,
@@ -78,10 +88,11 @@ export const recurringExpensesRouter = createTRPCRouter({
 			});
 		}),
 
-	update: publicProcedure
+	update: protectedProcedure
 		.input(
 			z.object({
 				id: z.string(),
+				workspaceId: z.string(),
 				name: z.string().min(1, "Name is required"),
 				amountInPounds: z.number().min(0.01, "Amount must be greater than 0"),
 				expenseCategoryId: z.string().min(1, "Expense category is required"),
@@ -104,14 +115,24 @@ export const recurringExpensesRouter = createTRPCRouter({
 					frequency: input.frequency,
 					updatedAt: new Date(),
 				})
-				.where(eq(recurringExpenses.id, input.id));
+				.where(
+					and(
+						eq(recurringExpenses.id, input.id),
+						eq(recurringExpenses.workspaceId, input.workspaceId),
+					),
+				);
 		}),
 
-	delete: publicProcedure
-		.input(z.object({ id: z.string() }))
+	delete: protectedProcedure
+		.input(z.object({ id: z.string(), workspaceId: z.string() }))
 		.mutation(({ ctx, input }) => {
 			return ctx.db
 				.delete(recurringExpenses)
-				.where(eq(recurringExpenses.id, input.id));
+				.where(
+					and(
+						eq(recurringExpenses.id, input.id),
+						eq(recurringExpenses.workspaceId, input.workspaceId),
+					),
+				);
 		}),
 });

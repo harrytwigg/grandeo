@@ -9,14 +9,69 @@ import { index, primaryKey, sqliteTableCreator } from "drizzle-orm/sqlite-core";
  */
 export const createTable = sqliteTableCreator((name) => `grandeo_${name}`);
 
-export const verificationTokens = createTable(
-	"verification_token",
+export const users = createTable(
+	"user",
 	(d) => ({
-		identifier: d.text({ length: 255 }).notNull(),
-		token: d.text({ length: 255 }).notNull(),
-		expires: d.integer({ mode: "timestamp" }).notNull(),
+		id: d.text({ length: 255 }).notNull().primaryKey(), // This will be the Clerk user ID
+		email: d.text({ length: 255 }).notNull().unique(),
+		firstName: d.text({ length: 255 }),
+		lastName: d.text({ length: 255 }),
+		imageUrl: d.text({ length: 500 }),
+		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
-	(t) => [primaryKey({ columns: [t.identifier, t.token] })],
+	(t) => [index("user_email_idx").on(t.email)],
+);
+
+export const workspaces = createTable(
+	"workspace",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		name: d.text({ length: 255 }).notNull(),
+		description: d.text({ length: 500 }),
+		createdBy: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => users.id),
+		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+	}),
+	(t) => [
+		index("workspace_name_idx").on(t.name),
+		index("workspace_created_by_idx").on(t.createdBy),
+	],
+);
+
+export const workspaceMemberships = createTable(
+	"workspace_membership",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		userId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		role: d.text({ length: 50 }).notNull().default("member"), // 'admin', 'member'
+		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+	}),
+	(t) => [
+		index("workspace_membership_workspace_idx").on(t.workspaceId),
+		index("workspace_membership_user_idx").on(t.userId),
+		// Unique constraint to prevent duplicate memberships
+		index("workspace_membership_unique_idx").on(t.workspaceId, t.userId),
+	],
 );
 
 export const currentAccounts = createTable(
@@ -27,14 +82,21 @@ export const currentAccounts = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
-		name: d.text({ length: 255 }).notNull().unique(),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		name: d.text({ length: 255 }).notNull(),
 		accountType: d.text({ length: 50 }).notNull().default("current_account"), // 'current_account' or 'credit_card'
 		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
 	(t) => [
+		index("current_account_workspace_idx").on(t.workspaceId),
 		index("current_account_name_idx").on(t.name),
 		index("current_account_type_idx").on(t.accountType),
+		// Unique name per workspace
+		index("current_account_workspace_name_idx").on(t.workspaceId, t.name),
 	],
 );
 
@@ -46,11 +108,20 @@ export const expenseCategories = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
-		name: d.text({ length: 255 }).notNull().unique(),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		name: d.text({ length: 255 }).notNull(),
 		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
-	(t) => [index("expense_category_name_idx").on(t.name)],
+	(t) => [
+		index("expense_category_workspace_idx").on(t.workspaceId),
+		index("expense_category_name_idx").on(t.name),
+		// Unique name per workspace
+		index("expense_category_workspace_name_idx").on(t.workspaceId, t.name),
+	],
 );
 
 export const recurringExpenses = createTable(
@@ -61,6 +132,10 @@ export const recurringExpenses = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
 		name: d.text({ length: 255 }).notNull(),
 		amountInPounds: d.real().notNull(),
 		expenseCategoryId: d
@@ -78,6 +153,7 @@ export const recurringExpenses = createTable(
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
 	(t) => [
+		index("recurring_expense_workspace_idx").on(t.workspaceId),
 		index("recurring_expense_category_idx").on(t.expenseCategoryId),
 		index("recurring_expense_account_idx").on(t.currentAccountId),
 		index("recurring_expense_start_date_idx").on(t.startDate),
@@ -93,6 +169,10 @@ export const accountBalances = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
 		currentAccountId: d
 			.text({ length: 255 })
 			.notNull()
@@ -103,6 +183,7 @@ export const accountBalances = createTable(
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
 	(t) => [
+		index("account_balance_workspace_idx").on(t.workspaceId),
 		index("account_balance_account_idx").on(t.currentAccountId),
 		index("account_balance_date_idx").on(t.date),
 		index("account_balance_account_date_idx").on(t.currentAccountId, t.date),
@@ -117,6 +198,10 @@ export const statements = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
 		currentAccountId: d
 			.text({ length: 255 })
 			.notNull()
@@ -131,6 +216,7 @@ export const statements = createTable(
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
 	(t) => [
+		index("statement_workspace_idx").on(t.workspaceId),
 		index("statement_account_idx").on(t.currentAccountId),
 		index("statement_period_idx").on(t.periodStartDate, t.periodEndDate),
 	],
@@ -144,6 +230,10 @@ export const transactions = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
 		currentAccountId: d
 			.text({ length: 255 })
 			.notNull()
@@ -160,6 +250,7 @@ export const transactions = createTable(
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
 	(t) => [
+		index("transaction_workspace_idx").on(t.workspaceId),
 		index("transaction_account_idx").on(t.currentAccountId),
 		index("transaction_date_idx").on(t.date),
 		index("transaction_account_date_idx").on(t.currentAccountId, t.date),
@@ -176,6 +267,10 @@ export const transactionSplits = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
 		sourceTransactionId: d
 			.text({ length: 255 })
 			.references(() => transactions.id, { onDelete: "cascade" }), // Optional - null for standalone splits
@@ -192,15 +287,54 @@ export const transactionSplits = createTable(
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),
 	(t) => [
+		index("transaction_split_workspace_idx").on(t.workspaceId),
 		index("transaction_split_source_transaction_idx").on(t.sourceTransactionId),
 		index("transaction_split_source_account_idx").on(t.sourceAccountId),
 		index("transaction_split_account_idx").on(t.currentAccountId),
 	],
 );
 
+export const usersRelations = relations(users, ({ many }) => ({
+	workspaceMemberships: many(workspaceMemberships),
+	createdWorkspaces: many(workspaces),
+}));
+
+export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
+	createdBy: one(users, {
+		fields: [workspaces.createdBy],
+		references: [users.id],
+	}),
+	memberships: many(workspaceMemberships),
+	currentAccounts: many(currentAccounts),
+	expenseCategories: many(expenseCategories),
+	recurringExpenses: many(recurringExpenses),
+	accountBalances: many(accountBalances),
+	statements: many(statements),
+	transactions: many(transactions),
+	transactionSplits: many(transactionSplits),
+}));
+
+export const workspaceMembershipsRelations = relations(
+	workspaceMemberships,
+	({ one }) => ({
+		workspace: one(workspaces, {
+			fields: [workspaceMemberships.workspaceId],
+			references: [workspaces.id],
+		}),
+		user: one(users, {
+			fields: [workspaceMemberships.userId],
+			references: [users.id],
+		}),
+	}),
+);
+
 export const recurringExpensesRelations = relations(
 	recurringExpenses,
 	({ one }) => ({
+		workspace: one(workspaces, {
+			fields: [recurringExpenses.workspaceId],
+			references: [workspaces.id],
+		}),
 		expenseCategory: one(expenseCategories, {
 			fields: [recurringExpenses.expenseCategoryId],
 			references: [expenseCategories.id],
@@ -214,7 +348,11 @@ export const recurringExpensesRelations = relations(
 
 export const expenseCategoriesRelations = relations(
 	expenseCategories,
-	({ many }) => ({
+	({ one, many }) => ({
+		workspace: one(workspaces, {
+			fields: [expenseCategories.workspaceId],
+			references: [workspaces.id],
+		}),
 		recurringExpenses: many(recurringExpenses),
 		transactions: many(transactions),
 	}),
@@ -222,7 +360,11 @@ export const expenseCategoriesRelations = relations(
 
 export const currentAccountsRelations = relations(
 	currentAccounts,
-	({ many }) => ({
+	({ one, many }) => ({
+		workspace: one(workspaces, {
+			fields: [currentAccounts.workspaceId],
+			references: [workspaces.id],
+		}),
 		recurringExpenses: many(recurringExpenses),
 		accountBalances: many(accountBalances),
 		statements: many(statements),
@@ -233,6 +375,10 @@ export const currentAccountsRelations = relations(
 export const accountBalancesRelations = relations(
 	accountBalances,
 	({ one }) => ({
+		workspace: one(workspaces, {
+			fields: [accountBalances.workspaceId],
+			references: [workspaces.id],
+		}),
 		currentAccount: one(currentAccounts, {
 			fields: [accountBalances.currentAccountId],
 			references: [currentAccounts.id],
@@ -241,6 +387,10 @@ export const accountBalancesRelations = relations(
 );
 
 export const statementsRelations = relations(statements, ({ one, many }) => ({
+	workspace: one(workspaces, {
+		fields: [statements.workspaceId],
+		references: [workspaces.id],
+	}),
 	currentAccount: one(currentAccounts, {
 		fields: [statements.currentAccountId],
 		references: [currentAccounts.id],
@@ -251,6 +401,10 @@ export const statementsRelations = relations(statements, ({ one, many }) => ({
 export const transactionsRelations = relations(
 	transactions,
 	({ one, many }) => ({
+		workspace: one(workspaces, {
+			fields: [transactions.workspaceId],
+			references: [workspaces.id],
+		}),
 		currentAccount: one(currentAccounts, {
 			fields: [transactions.currentAccountId],
 			references: [currentAccounts.id],
@@ -270,6 +424,10 @@ export const transactionsRelations = relations(
 export const transactionSplitsRelations = relations(
 	transactionSplits,
 	({ one }) => ({
+		workspace: one(workspaces, {
+			fields: [transactionSplits.workspaceId],
+			references: [workspaces.id],
+		}),
 		transaction: one(transactions, {
 			fields: [transactionSplits.sourceTransactionId],
 			references: [transactions.id],

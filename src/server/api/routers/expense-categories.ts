@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
 	createTRPCRouter,
 	protectedProcedure,
@@ -9,17 +9,27 @@ import {
 import { expenseCategories } from "grandeo/server/db/schema";
 
 export const expenseCategoriesRouter = createTRPCRouter({
-	getAll: publicProcedure.query(({ ctx }) => {
-		return ctx.db.select().from(expenseCategories);
-	}),
-
-	getById: publicProcedure
-		.input(z.object({ id: z.string() }))
+	getAll: publicProcedure
+		.input(z.object({ workspaceId: z.string() }))
 		.query(({ ctx, input }) => {
 			return ctx.db
 				.select()
 				.from(expenseCategories)
-				.where(eq(expenseCategories.id, input.id))
+				.where(eq(expenseCategories.workspaceId, input.workspaceId));
+		}),
+
+	getById: publicProcedure
+		.input(z.object({ id: z.string(), workspaceId: z.string() }))
+		.query(({ ctx, input }) => {
+			return ctx.db
+				.select()
+				.from(expenseCategories)
+				.where(
+					and(
+						eq(expenseCategories.id, input.id),
+						eq(expenseCategories.workspaceId, input.workspaceId),
+					),
+				)
 				.limit(1);
 		}),
 
@@ -27,11 +37,13 @@ export const expenseCategoriesRouter = createTRPCRouter({
 		.input(
 			z.object({
 				name: z.string().min(1, "Name is required").trim().toLowerCase(),
+				workspaceId: z.string(),
 			}),
 		)
 		.mutation(({ ctx, input }) => {
 			return ctx.db.insert(expenseCategories).values({
 				name: input.name,
+				workspaceId: input.workspaceId,
 			});
 		}),
 
@@ -40,6 +52,7 @@ export const expenseCategoriesRouter = createTRPCRouter({
 			z.object({
 				id: z.string(),
 				name: z.string().min(1, "Name is required"),
+				workspaceId: z.string(),
 			}),
 		)
 		.mutation(({ ctx, input }) => {
@@ -49,14 +62,24 @@ export const expenseCategoriesRouter = createTRPCRouter({
 					name: input.name,
 					updatedAt: new Date(),
 				})
-				.where(eq(expenseCategories.id, input.id));
+				.where(
+					and(
+						eq(expenseCategories.id, input.id),
+						eq(expenseCategories.workspaceId, input.workspaceId),
+					),
+				);
 		}),
 
 	delete: publicProcedure
-		.input(z.object({ id: z.string() }))
+		.input(z.object({ id: z.string(), workspaceId: z.string() }))
 		.mutation(({ ctx, input }) => {
 			return ctx.db
 				.delete(expenseCategories)
-				.where(eq(expenseCategories.id, input.id));
+				.where(
+					and(
+						eq(expenseCategories.id, input.id),
+						eq(expenseCategories.workspaceId, input.workspaceId),
+					),
+				);
 		}),
 });

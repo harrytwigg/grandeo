@@ -1,3 +1,10 @@
+import {
+	SignInButton,
+	SignUpButton,
+	SignedIn,
+	SignedOut,
+	UserButton,
+} from "@clerk/nextjs";
 import { Button } from "grandeo/components/ui/button";
 import { Separator } from "grandeo/components/ui/separator";
 import {
@@ -14,6 +21,7 @@ import {
 	SidebarProvider,
 	SidebarTrigger,
 } from "grandeo/components/ui/sidebar";
+import { WorkspaceSwitcher } from "grandeo/components/workspace-switcher";
 import {
 	BarChart3Icon,
 	CalendarIcon,
@@ -25,13 +33,6 @@ import {
 	TrendingUpIcon,
 	WalletIcon,
 } from "lucide-react";
-import {
-	SignInButton,
-	SignUpButton,
-	SignedIn,
-	SignedOut,
-	UserButton,
-} from "@clerk/nextjs";
 import Link from "next/link";
 
 interface DashboardLayoutProps {
@@ -142,7 +143,18 @@ export function DashboardLayout({
 						</SidebarGroup>
 
 						{/* Auth Section at the bottom */}
-						<div className="mt-auto border-t p-4">
+						<div className="mt-auto space-y-4 border-t p-4">
+							{/* Workspace Switcher */}
+							<SignedIn>
+								<div className="space-y-2">
+									<div className="font-medium text-xs text-muted-foreground">
+										WORKSPACE
+									</div>
+									<WorkspaceSwitcher />
+								</div>
+							</SignedIn>
+
+							{/* Auth buttons */}
 							<SignedOut>
 								<div className="space-y-2">
 									<SignInButton>

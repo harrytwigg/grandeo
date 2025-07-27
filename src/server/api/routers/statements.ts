@@ -198,6 +198,27 @@ export const statementsRouter = createTRPCRouter({
 			});
 		}),
 
+	update: publicProcedure
+		.input(
+			z.object({
+				id: z.string(),
+				periodStartDate: z.date().nullable(),
+				periodEndDate: z.date().nullable(),
+				openingBalance: z.number().nullable(),
+				closingBalance: z.number().nullable(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const { id, ...updateData } = input;
+
+			return ctx.db
+				.update(statements)
+				.set(updateData)
+				.where(eq(statements.id, id))
+				.returning()
+				.then((res) => res[0]);
+		}),
+
 	delete: publicProcedure
 		.input(z.object({ id: z.string() }))
 		.mutation(async ({ ctx, input }) => {

@@ -1,0 +1,1231 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "21a6a28d-0c24-4e2d-ad85-d7926a139c7e",
+  "prevId": "ce3e346b-da67-412b-888a-4434a5be4590",
+  "tables": {
+    "grandeo_account_balance": {
+      "name": "grandeo_account_balance",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentAccountId": {
+          "name": "currentAccountId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "balance": {
+          "name": "balance",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "account_balance_workspace_idx": {
+          "name": "account_balance_workspace_idx",
+          "columns": [
+            "workspaceId"
+          ],
+          "isUnique": false
+        },
+        "account_balance_account_idx": {
+          "name": "account_balance_account_idx",
+          "columns": [
+            "currentAccountId"
+          ],
+          "isUnique": false
+        },
+        "account_balance_date_idx": {
+          "name": "account_balance_date_idx",
+          "columns": [
+            "date"
+          ],
+          "isUnique": false
+        },
+        "account_balance_account_date_idx": {
+          "name": "account_balance_account_date_idx",
+          "columns": [
+            "currentAccountId",
+            "date"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_account_balance_workspaceId_grandeo_workspace_id_fk": {
+          "name": "grandeo_account_balance_workspaceId_grandeo_workspace_id_fk",
+          "tableFrom": "grandeo_account_balance",
+          "tableTo": "grandeo_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "grandeo_account_balance_currentAccountId_grandeo_current_account_id_fk": {
+          "name": "grandeo_account_balance_currentAccountId_grandeo_current_account_id_fk",
+          "tableFrom": "grandeo_account_balance",
+          "tableTo": "grandeo_current_account",
+          "columnsFrom": [
+            "currentAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_current_account": {
+      "name": "grandeo_current_account",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "accountType": {
+          "name": "accountType",
+          "type": "text(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'current_account'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "current_account_workspace_idx": {
+          "name": "current_account_workspace_idx",
+          "columns": [
+            "workspaceId"
+          ],
+          "isUnique": false
+        },
+        "current_account_name_idx": {
+          "name": "current_account_name_idx",
+          "columns": [
+            "name"
+          ],
+          "isUnique": false
+        },
+        "current_account_type_idx": {
+          "name": "current_account_type_idx",
+          "columns": [
+            "accountType"
+          ],
+          "isUnique": false
+        },
+        "current_account_workspace_name_idx": {
+          "name": "current_account_workspace_name_idx",
+          "columns": [
+            "workspaceId",
+            "name"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_current_account_workspaceId_grandeo_workspace_id_fk": {
+          "name": "grandeo_current_account_workspaceId_grandeo_workspace_id_fk",
+          "tableFrom": "grandeo_current_account",
+          "tableTo": "grandeo_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_expense_category": {
+      "name": "grandeo_expense_category",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "expense_category_workspace_idx": {
+          "name": "expense_category_workspace_idx",
+          "columns": [
+            "workspaceId"
+          ],
+          "isUnique": false
+        },
+        "expense_category_name_idx": {
+          "name": "expense_category_name_idx",
+          "columns": [
+            "name"
+          ],
+          "isUnique": false
+        },
+        "expense_category_workspace_name_idx": {
+          "name": "expense_category_workspace_name_idx",
+          "columns": [
+            "workspaceId",
+            "name"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_expense_category_workspaceId_grandeo_workspace_id_fk": {
+          "name": "grandeo_expense_category_workspaceId_grandeo_workspace_id_fk",
+          "tableFrom": "grandeo_expense_category",
+          "tableTo": "grandeo_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_recurring_expense": {
+      "name": "grandeo_recurring_expense",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amountInPounds": {
+          "name": "amountInPounds",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expenseCategoryId": {
+          "name": "expenseCategoryId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentAccountId": {
+          "name": "currentAccountId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "startDate": {
+          "name": "startDate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "endDate": {
+          "name": "endDate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "frequency": {
+          "name": "frequency",
+          "type": "text(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "recurring_expense_workspace_idx": {
+          "name": "recurring_expense_workspace_idx",
+          "columns": [
+            "workspaceId"
+          ],
+          "isUnique": false
+        },
+        "recurring_expense_category_idx": {
+          "name": "recurring_expense_category_idx",
+          "columns": [
+            "expenseCategoryId"
+          ],
+          "isUnique": false
+        },
+        "recurring_expense_account_idx": {
+          "name": "recurring_expense_account_idx",
+          "columns": [
+            "currentAccountId"
+          ],
+          "isUnique": false
+        },
+        "recurring_expense_start_date_idx": {
+          "name": "recurring_expense_start_date_idx",
+          "columns": [
+            "startDate"
+          ],
+          "isUnique": false
+        },
+        "recurring_expense_frequency_idx": {
+          "name": "recurring_expense_frequency_idx",
+          "columns": [
+            "frequency"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_recurring_expense_workspaceId_grandeo_workspace_id_fk": {
+          "name": "grandeo_recurring_expense_workspaceId_grandeo_workspace_id_fk",
+          "tableFrom": "grandeo_recurring_expense",
+          "tableTo": "grandeo_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "grandeo_recurring_expense_expenseCategoryId_grandeo_expense_category_id_fk": {
+          "name": "grandeo_recurring_expense_expenseCategoryId_grandeo_expense_category_id_fk",
+          "tableFrom": "grandeo_recurring_expense",
+          "tableTo": "grandeo_expense_category",
+          "columnsFrom": [
+            "expenseCategoryId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "grandeo_recurring_expense_currentAccountId_grandeo_current_account_id_fk": {
+          "name": "grandeo_recurring_expense_currentAccountId_grandeo_current_account_id_fk",
+          "tableFrom": "grandeo_recurring_expense",
+          "tableTo": "grandeo_current_account",
+          "columnsFrom": [
+            "currentAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_statement": {
+      "name": "grandeo_statement",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentAccountId": {
+          "name": "currentAccountId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "periodStartDate": {
+          "name": "periodStartDate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "periodEndDate": {
+          "name": "periodEndDate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "openingBalance": {
+          "name": "openingBalance",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "closingBalance": {
+          "name": "closingBalance",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sourceFileName": {
+          "name": "sourceFileName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sourcePathDataBucket": {
+          "name": "sourcePathDataBucket",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "statement_workspace_idx": {
+          "name": "statement_workspace_idx",
+          "columns": [
+            "workspaceId"
+          ],
+          "isUnique": false
+        },
+        "statement_account_idx": {
+          "name": "statement_account_idx",
+          "columns": [
+            "currentAccountId"
+          ],
+          "isUnique": false
+        },
+        "statement_period_idx": {
+          "name": "statement_period_idx",
+          "columns": [
+            "periodStartDate",
+            "periodEndDate"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_statement_workspaceId_grandeo_workspace_id_fk": {
+          "name": "grandeo_statement_workspaceId_grandeo_workspace_id_fk",
+          "tableFrom": "grandeo_statement",
+          "tableTo": "grandeo_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "grandeo_statement_currentAccountId_grandeo_current_account_id_fk": {
+          "name": "grandeo_statement_currentAccountId_grandeo_current_account_id_fk",
+          "tableFrom": "grandeo_statement",
+          "tableTo": "grandeo_current_account",
+          "columnsFrom": [
+            "currentAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_transaction_split": {
+      "name": "grandeo_transaction_split",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sourceTransactionId": {
+          "name": "sourceTransactionId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sourceAccountId": {
+          "name": "sourceAccountId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "currentAccountId": {
+          "name": "currentAccountId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amountInPounds": {
+          "name": "amountInPounds",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "transaction_split_workspace_idx": {
+          "name": "transaction_split_workspace_idx",
+          "columns": [
+            "workspaceId"
+          ],
+          "isUnique": false
+        },
+        "transaction_split_source_transaction_idx": {
+          "name": "transaction_split_source_transaction_idx",
+          "columns": [
+            "sourceTransactionId"
+          ],
+          "isUnique": false
+        },
+        "transaction_split_source_account_idx": {
+          "name": "transaction_split_source_account_idx",
+          "columns": [
+            "sourceAccountId"
+          ],
+          "isUnique": false
+        },
+        "transaction_split_account_idx": {
+          "name": "transaction_split_account_idx",
+          "columns": [
+            "currentAccountId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_transaction_split_workspaceId_grandeo_workspace_id_fk": {
+          "name": "grandeo_transaction_split_workspaceId_grandeo_workspace_id_fk",
+          "tableFrom": "grandeo_transaction_split",
+          "tableTo": "grandeo_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "grandeo_transaction_split_sourceTransactionId_grandeo_transaction_id_fk": {
+          "name": "grandeo_transaction_split_sourceTransactionId_grandeo_transaction_id_fk",
+          "tableFrom": "grandeo_transaction_split",
+          "tableTo": "grandeo_transaction",
+          "columnsFrom": [
+            "sourceTransactionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "grandeo_transaction_split_sourceAccountId_grandeo_current_account_id_fk": {
+          "name": "grandeo_transaction_split_sourceAccountId_grandeo_current_account_id_fk",
+          "tableFrom": "grandeo_transaction_split",
+          "tableTo": "grandeo_current_account",
+          "columnsFrom": [
+            "sourceAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "grandeo_transaction_split_currentAccountId_grandeo_current_account_id_fk": {
+          "name": "grandeo_transaction_split_currentAccountId_grandeo_current_account_id_fk",
+          "tableFrom": "grandeo_transaction_split",
+          "tableTo": "grandeo_current_account",
+          "columnsFrom": [
+            "currentAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_transaction": {
+      "name": "grandeo_transaction",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentAccountId": {
+          "name": "currentAccountId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sourceStatementId": {
+          "name": "sourceStatementId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "expenseCategoryId": {
+          "name": "expenseCategoryId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "amountInPounds": {
+          "name": "amountInPounds",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "handled": {
+          "name": "handled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "transaction_workspace_idx": {
+          "name": "transaction_workspace_idx",
+          "columns": [
+            "workspaceId"
+          ],
+          "isUnique": false
+        },
+        "transaction_account_idx": {
+          "name": "transaction_account_idx",
+          "columns": [
+            "currentAccountId"
+          ],
+          "isUnique": false
+        },
+        "transaction_date_idx": {
+          "name": "transaction_date_idx",
+          "columns": [
+            "date"
+          ],
+          "isUnique": false
+        },
+        "transaction_account_date_idx": {
+          "name": "transaction_account_date_idx",
+          "columns": [
+            "currentAccountId",
+            "date"
+          ],
+          "isUnique": false
+        },
+        "transaction_expense_category_idx": {
+          "name": "transaction_expense_category_idx",
+          "columns": [
+            "expenseCategoryId"
+          ],
+          "isUnique": false
+        },
+        "transaction_source_statement_idx": {
+          "name": "transaction_source_statement_idx",
+          "columns": [
+            "sourceStatementId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_transaction_workspaceId_grandeo_workspace_id_fk": {
+          "name": "grandeo_transaction_workspaceId_grandeo_workspace_id_fk",
+          "tableFrom": "grandeo_transaction",
+          "tableTo": "grandeo_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "grandeo_transaction_currentAccountId_grandeo_current_account_id_fk": {
+          "name": "grandeo_transaction_currentAccountId_grandeo_current_account_id_fk",
+          "tableFrom": "grandeo_transaction",
+          "tableTo": "grandeo_current_account",
+          "columnsFrom": [
+            "currentAccountId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "grandeo_transaction_sourceStatementId_grandeo_statement_id_fk": {
+          "name": "grandeo_transaction_sourceStatementId_grandeo_statement_id_fk",
+          "tableFrom": "grandeo_transaction",
+          "tableTo": "grandeo_statement",
+          "columnsFrom": [
+            "sourceStatementId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "grandeo_transaction_expenseCategoryId_grandeo_expense_category_id_fk": {
+          "name": "grandeo_transaction_expenseCategoryId_grandeo_expense_category_id_fk",
+          "tableFrom": "grandeo_transaction",
+          "tableTo": "grandeo_expense_category",
+          "columnsFrom": [
+            "expenseCategoryId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_user": {
+      "name": "grandeo_user",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "firstName": {
+          "name": "firstName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lastName": {
+          "name": "lastName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "imageUrl": {
+          "name": "imageUrl",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "grandeo_user_email_unique": {
+          "name": "grandeo_user_email_unique",
+          "columns": [
+            "email"
+          ],
+          "isUnique": true
+        },
+        "user_email_idx": {
+          "name": "user_email_idx",
+          "columns": [
+            "email"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_workspace_membership": {
+      "name": "grandeo_workspace_membership",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'member'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "workspace_membership_workspace_idx": {
+          "name": "workspace_membership_workspace_idx",
+          "columns": [
+            "workspaceId"
+          ],
+          "isUnique": false
+        },
+        "workspace_membership_user_idx": {
+          "name": "workspace_membership_user_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "workspace_membership_unique_idx": {
+          "name": "workspace_membership_unique_idx",
+          "columns": [
+            "workspaceId",
+            "userId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_workspace_membership_workspaceId_grandeo_workspace_id_fk": {
+          "name": "grandeo_workspace_membership_workspaceId_grandeo_workspace_id_fk",
+          "tableFrom": "grandeo_workspace_membership",
+          "tableTo": "grandeo_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "grandeo_workspace_membership_userId_grandeo_user_id_fk": {
+          "name": "grandeo_workspace_membership_userId_grandeo_user_id_fk",
+          "tableFrom": "grandeo_workspace_membership",
+          "tableTo": "grandeo_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "grandeo_workspace": {
+      "name": "grandeo_workspace",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "workspace_name_idx": {
+          "name": "workspace_name_idx",
+          "columns": [
+            "name"
+          ],
+          "isUnique": false
+        },
+        "workspace_created_by_idx": {
+          "name": "workspace_created_by_idx",
+          "columns": [
+            "createdBy"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grandeo_workspace_createdBy_grandeo_user_id_fk": {
+          "name": "grandeo_workspace_createdBy_grandeo_user_id_fk",
+          "tableFrom": "grandeo_workspace",
+          "tableTo": "grandeo_user",
+          "columnsFrom": [
+            "createdBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

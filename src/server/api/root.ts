@@ -3,6 +3,8 @@ import { expenseCategoriesRouter } from "grandeo/server/api/routers/expense-cate
 import { recurringExpensesRouter } from "grandeo/server/api/routers/recurring-expenses";
 import { statementsRouter } from "grandeo/server/api/routers/statements";
 import { transactionsRouter } from "grandeo/server/api/routers/transactions";
+import { usersRouter } from "grandeo/server/api/routers/users";
+import { workspacesRouter } from "grandeo/server/api/routers/workspaces";
 import { createCallerFactory, createTRPCRouter } from "grandeo/server/api/trpc";
 
 /**
@@ -11,6 +13,8 @@ import { createCallerFactory, createTRPCRouter } from "grandeo/server/api/trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
+	users: usersRouter,
+	workspaces: workspacesRouter,
 	expenseCategories: expenseCategoriesRouter,
 	currentAccounts: accountsRouter,
 	recurringExpenses: recurringExpensesRouter,

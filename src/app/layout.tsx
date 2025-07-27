@@ -11,6 +11,8 @@ import {
 	UserButton,
 } from "@clerk/nextjs";
 import { TRPCReactProvider } from "grandeo/trpc/react";
+import { WorkspaceProvider } from "grandeo/components/workspace-provider";
+import { UserInitializer } from "grandeo/components/user-initializer";
 
 export const metadata: Metadata = {
 	title: "Grandeo - Money Tracker",
@@ -30,7 +32,16 @@ export default function RootLayout({
 		<ClerkProvider>
 			<html lang="en" className={`${geist.variable}`}>
 				<body>
-					<TRPCReactProvider>{children}</TRPCReactProvider>
+					<TRPCReactProvider>
+						<SignedIn>
+							<UserInitializer>
+								<WorkspaceProvider>{children}</WorkspaceProvider>
+							</UserInitializer>
+						</SignedIn>
+						<SignedOut>
+							{children}
+						</SignedOut>
+					</TRPCReactProvider>
 				</body>
 			</html>
 		</ClerkProvider>

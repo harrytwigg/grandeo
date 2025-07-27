@@ -4,7 +4,7 @@ import { AccountBalanceChart } from "grandeo/components/account-balance-chart";
 import { DashboardLayout } from "grandeo/components/dashboard-layout";
 import { ManualSplitDialog } from "grandeo/components/manual-split-dialog";
 import { StatementsTable } from "grandeo/components/statements-table";
-import { TransactionRow } from "grandeo/components/transaction-row";
+import { TransactionsTable } from "grandeo/components/transactions-table";
 import { TransactionSplitsTable } from "grandeo/components/transaction-splits-table";
 import { Badge } from "grandeo/components/ui/badge";
 import { Button } from "grandeo/components/ui/button";
@@ -26,14 +26,6 @@ import {
 } from "grandeo/components/ui/dialog";
 import { Input } from "grandeo/components/ui/input";
 import { Label } from "grandeo/components/ui/label";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "grandeo/components/ui/table";
 import {
 	Tabs,
 	TabsContent,
@@ -75,12 +67,6 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 		refetch: refetchStatements,
 	} = api.statements.getByAccountId.useQuery({ accountId: params.id });
 
-	const {
-		data: transactions,
-		isLoading: isLoadingTransactions,
-		refetch: refetchTransactions,
-	} = api.transactions.getByAccountId.useQuery({ accountId: params.id });
-
 	// Get owed balance for this account (splits to other accounts)
 	const {
 		data: owedBalance,
@@ -94,7 +80,6 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 	const createStatement = api.statements.create.useMutation({
 		onSuccess: () => {
 			refetchStatements();
-			refetchTransactions();
 			setIsUploadDialogOpen(false);
 			setNewStatementFile(null);
 		},
@@ -147,12 +132,7 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 		});
 	};
 
-	if (
-		isLoadingAccount ||
-		isLoadingStatements ||
-		isLoadingTransactions ||
-		isLoadingOwedBalance
-	) {
+	if (isLoadingAccount || isLoadingStatements || isLoadingOwedBalance) {
 		return (
 			<DashboardLayout title="Account Details" showAddButton={false}>
 				<div className="flex items-center justify-center py-12">
@@ -184,7 +164,6 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 	}
 
 	const currentAccount = account;
-	const totalTransactions = transactions?.length || 0;
 	const latestStatement = statements?.[0];
 	const currentBalance = latestStatement?.closingBalance ?? null;
 
@@ -204,7 +183,7 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 				</div>
 
 				{/* Account Overview */}
-				<div className="grid gap-4 md:grid-cols-4">
+				<div className="grid gap-4 md:grid-cols-3">
 					<Card>
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 							<CardTitle className="font-medium text-sm">
@@ -243,21 +222,6 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 								{latestStatement?.periodEndDate
 									? `As of ${formatDate(latestStatement.periodEndDate)}`
 									: "No statements uploaded"}
-							</p>
-						</CardContent>
-					</Card>
-
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="font-medium text-sm">
-								Transactions
-							</CardTitle>
-							<PoundSterlingIcon className="h-4 w-4 text-muted-foreground" />
-						</CardHeader>
-						<CardContent>
-							<div className="font-bold text-2xl">{totalTransactions}</div>
-							<p className="text-muted-foreground text-xs">
-								Total transactions
 							</p>
 						</CardContent>
 					</Card>
@@ -390,7 +354,7 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 									statements={statements}
 									onUploadClick={() => setIsUploadDialogOpen(true)}
 									onRefreshStatements={refetchStatements}
-									onRefreshTransactions={refetchTransactions}
+									onRefreshTransactions={() => {}}
 								/>
 							</CardContent>
 						</Card>
@@ -405,51 +369,10 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 								</CardDescription>
 							</CardHeader>
 							<CardContent>
-								{transactions && transactions.length > 0 ? (
-									<Table>
-										<TableHeader>
-											<TableRow>
-												<TableHead>Date</TableHead>
-												<TableHead>Description</TableHead>
-												<TableHead>Expense Category</TableHead>
-												<TableHead>Amount</TableHead>
-												<TableHead>Handled</TableHead>
-												<TableHead className="text-right">Actions</TableHead>
-											</TableRow>
-										</TableHeader>
-										<TableBody>
-											{transactions.map((transaction) => (
-												<TransactionRow
-													key={transaction.id}
-													transaction={transaction}
-													onCategoryChange={() => {
-														// Refetch transactions when category changes
-														refetchTransactions();
-													}}
-													onHandledChange={() => {
-														// Refetch transactions when handled status changes
-														refetchTransactions();
-													}}
-													onSplitsChange={() => {
-														// Refetch transactions and owed balance when splits are created/deleted
-														refetchTransactions();
-														refetchOwedBalance();
-													}}
-												/>
-											))}
-										</TableBody>
-									</Table>
-								) : (
-									<div className="py-12 text-center">
-										<PoundSterlingIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-										<h3 className="mt-4 font-semibold text-lg">
-											No transactions found
-										</h3>
-										<p className="mb-4 text-muted-foreground">
-											Upload and parse a statement to see transactions here.
-										</p>
-									</div>
-								)}
+								<TransactionsTable
+									accountId={params.id}
+									onRefreshOwedBalance={refetchOwedBalance}
+								/>
 							</CardContent>
 						</Card>
 					</TabsContent>

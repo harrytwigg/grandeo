@@ -47,7 +47,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "grandeo/components/ui/table";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import {
 	BuildingIcon,
 	CalendarIcon,
@@ -61,6 +61,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function CurrentAccountsPage() {
+	const workspaceApi = useWorkspaceApi();
 	const router = useRouter();
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -79,36 +80,25 @@ export default function CurrentAccountsPage() {
 		data: accounts,
 		isLoading,
 		refetch,
-	} = api.currentAccounts.getAll.useQuery();
+	} = workspaceApi.currentAccounts.getAll();
 
-	const createAccount = api.currentAccounts.create.useMutation({
-		onSuccess: () => {
-			refetch();
-			setIsCreateDialogOpen(false);
-			setNewAccountName("");
-			setNewAccountType("current_account");
-		},
-	});
-
-	const updateAccount = api.currentAccounts.update.useMutation({
-		onSuccess: () => {
-			refetch();
-			setIsEditDialogOpen(false);
-			setEditingAccount(null);
-		},
-	});
-
-	const deleteAccount = api.currentAccounts.delete.useMutation({
-		onSuccess: () => {
-			refetch();
-		},
-	});
+	const createAccount = workspaceApi.currentAccounts.create();
+	const updateAccount = workspaceApi.currentAccounts.update();
+	const deleteAccount = workspaceApi.currentAccounts.delete();
 
 	const handleCreateAccount = () => {
-		if (newAccountName.trim()) {
+		if (newAccountName.trim() && workspaceApi.workspaceId) {
 			createAccount.mutate({
 				name: newAccountName.trim(),
 				accountType: newAccountType,
+				workspaceId: workspaceApi.workspaceId,
+			}, {
+				onSuccess: () => {
+					refetch();
+					setIsCreateDialogOpen(false);
+					setNewAccountName("");
+					setNewAccountType("current_account");
+				},
 			});
 		}
 	};
@@ -134,12 +124,22 @@ export default function CurrentAccountsPage() {
 				accountType: editingAccount.accountType as
 					| "current_account"
 					| "credit_card",
+			}, {
+				onSuccess: () => {
+					refetch();
+					setIsEditDialogOpen(false);
+					setEditingAccount(null);
+				},
 			});
 		}
 	};
 
 	const handleDeleteAccount = (id: string) => {
-		deleteAccount.mutate({ id });
+		deleteAccount.mutate({ id }, {
+			onSuccess: () => {
+				refetch();
+			},
+		});
 	};
 
 	if (isLoading) {

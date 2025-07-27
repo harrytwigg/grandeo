@@ -20,15 +20,18 @@ import {
 	TableHeader,
 	TableRow,
 } from "grandeo/components/ui/table";
+import { EditStatementDialog } from "grandeo/components/edit-statement-dialog";
 import { api } from "grandeo/trpc/react";
 import {
 	CalendarIcon,
 	DownloadIcon,
+	EditIcon,
 	FileTextIcon,
 	ScanIcon,
 	TrashIcon,
 	UploadIcon,
 } from "lucide-react";
+import { useState } from "react";
 
 interface Statement {
 	id: string;
@@ -53,10 +56,27 @@ export function StatementsTable({
 	onRefreshStatements,
 	onRefreshTransactions,
 }: StatementsTableProps) {
+	// State for edit dialog
+	const [editDialogOpen, setEditDialogOpen] = useState(false);
+	const [selectedStatement, setSelectedStatement] = useState<Statement | null>(
+		null,
+	);
+
 	// Mutations
 	const deleteStatement = api.statements.delete.useMutation({
 		onSuccess: () => {
 			onRefreshStatements();
+		},
+	});
+
+	const updateStatement = api.statements.update.useMutation({
+		onSuccess: () => {
+			onRefreshStatements();
+			setEditDialogOpen(false);
+			setSelectedStatement(null);
+		},
+		onError: (error) => {
+			console.error("Update failed:", error);
 		},
 	});
 
@@ -114,6 +134,21 @@ export function StatementsTable({
 		deleteStatement.mutate({ id });
 	};
 
+	const handleEditStatement = (statement: Statement) => {
+		setSelectedStatement(statement);
+		setEditDialogOpen(true);
+	};
+
+	const handleUpdateStatement = (data: {
+		id: string;
+		periodStartDate: Date | null;
+		periodEndDate: Date | null;
+		openingBalance: number | null;
+		closingBalance: number | null;
+	}) => {
+		updateStatement.mutate(data);
+	};
+
 	const formatCurrency = (amount: number) => {
 		if (amount === 0) {
 			return "£0.00";
@@ -151,130 +186,146 @@ export function StatementsTable({
 	}
 
 	return (
-		<Table>
-			<TableHeader>
-				<TableRow>
-					<TableHead>Period End Date</TableHead>
-					<TableHead>Period</TableHead>
-					<TableHead>Opening Balance</TableHead>
-					<TableHead>Closing Balance</TableHead>
-					<TableHead>Transactions Imported</TableHead>
-					<TableHead>File</TableHead>
-					<TableHead className="text-right">Actions</TableHead>
-				</TableRow>
-			</TableHeader>
-			<TableBody>
-				{statements.map((statement) => (
-					<TableRow key={statement.id}>
-						<TableCell className="font-medium">
-							<div className="flex items-center gap-2">
-								<CalendarIcon className="h-4 w-4 text-muted-foreground" />
-								{statement.periodEndDate
-									? formatDate(statement.periodEndDate)
-									: "Not parsed"}
-							</div>
-						</TableCell>
-						<TableCell className="text-muted-foreground">
-							{statement.periodStartDate && statement.periodEndDate
-								? `${formatDate(statement.periodStartDate)} - ${formatDate(statement.periodEndDate)}`
-								: "Not parsed"}
-						</TableCell>
-						<TableCell>
-							{statement.openingBalance !== null ? (
-								<span
-									className={
-										statement.openingBalance >= 0
-											? "text-green-600"
-											: "text-red-600"
-									}
-								>
-									{formatCurrency(statement.openingBalance)}
-								</span>
-							) : (
-								<span className="text-muted-foreground">Not parsed</span>
-							)}
-						</TableCell>
-						<TableCell>
-							{statement.closingBalance !== null ? (
-								<span
-									className={
-										statement.closingBalance >= 0
-											? "text-green-600"
-											: "text-red-600"
-									}
-								>
-									{formatCurrency(statement.closingBalance)}
-								</span>
-							) : (
-								<span className="text-muted-foreground">Not parsed</span>
-							)}
-						</TableCell>
-						<TableCell>
-							<div className="flex items-center gap-2">
-								<span className="font-medium text-sm">
-									{statement.transactionCount || 0}
-								</span>
-								<span className="text-muted-foreground text-xs">
-									transactions
-								</span>
-							</div>
-						</TableCell>
-						<TableCell>
-							<div className="flex items-center gap-2">
-								<FileTextIcon className="h-4 w-4 text-muted-foreground" />
-								<span className="text-sm">{statement.sourceFileName}</span>
-							</div>
-						</TableCell>
-						<TableCell className="text-right">
-							<div className="flex justify-end gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => handleDownloadStatement(statement.id)}
-									disabled={downloadStatement.isPending}
-								>
-									<DownloadIcon className="h-4 w-4" />
-								</Button>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => handleParseStatement(statement.id)}
-									disabled={parseStatement.isPending}
-								>
-									<ScanIcon className="h-4 w-4" />
-								</Button>
-								<AlertDialog>
-									<AlertDialogTrigger asChild>
-										<Button variant="destructive" size="sm">
-											<TrashIcon className="h-4 w-4" />
-										</Button>
-									</AlertDialogTrigger>
-									<AlertDialogContent>
-										<AlertDialogHeader>
-											<AlertDialogTitle>Delete Statement</AlertDialogTitle>
-											<AlertDialogDescription>
-												Are you sure you want to delete this statement
-												{statement.periodEndDate
-													? ` from ${formatDate(statement.periodEndDate)}`
-													: ""}
-												? This action cannot be undone.
-											</AlertDialogDescription>
-										</AlertDialogHeader>
-										<AlertDialogFooter>
-											<AlertDialogCancel>Cancel</AlertDialogCancel>
-											<AlertDialogAction
-												onClick={() => handleDeleteStatement(statement.id)}
-											>
-												Delete
-											</AlertDialogAction>
-										</AlertDialogFooter>
-									</AlertDialogContent>
-								</AlertDialog>
-							</div>
-						</TableCell>
+		<>
+			<Table>
+				<TableHeader>
+					<TableRow>
+						<TableHead>Period End Date</TableHead>
+						<TableHead>Period</TableHead>
+						<TableHead>Opening Balance</TableHead>
+						<TableHead>Closing Balance</TableHead>
+						<TableHead>Transactions Imported</TableHead>
+						<TableHead>File</TableHead>
+						<TableHead className="text-right">Actions</TableHead>
 					</TableRow>
-				))}
-			</TableBody>
-		</Table>
+				</TableHeader>
+				<TableBody>
+					{statements.map((statement) => (
+						<TableRow key={statement.id}>
+							<TableCell className="font-medium">
+								<div className="flex items-center gap-2">
+									<CalendarIcon className="h-4 w-4 text-muted-foreground" />
+									{statement.periodEndDate
+										? formatDate(statement.periodEndDate)
+										: "Not parsed"}
+								</div>
+							</TableCell>
+							<TableCell className="text-muted-foreground">
+								{statement.periodStartDate && statement.periodEndDate
+									? `${formatDate(statement.periodStartDate)} - ${formatDate(statement.periodEndDate)}`
+									: "Not parsed"}
+							</TableCell>
+							<TableCell>
+								{statement.openingBalance !== null ? (
+									<span
+										className={
+											statement.openingBalance >= 0
+												? "text-green-600"
+												: "text-red-600"
+										}
+									>
+										{formatCurrency(statement.openingBalance)}
+									</span>
+								) : (
+									<span className="text-muted-foreground">Not parsed</span>
+								)}
+							</TableCell>
+							<TableCell>
+								{statement.closingBalance !== null ? (
+									<span
+										className={
+											statement.closingBalance >= 0
+												? "text-green-600"
+												: "text-red-600"
+										}
+									>
+										{formatCurrency(statement.closingBalance)}
+									</span>
+								) : (
+									<span className="text-muted-foreground">Not parsed</span>
+								)}
+							</TableCell>
+							<TableCell>
+								<div className="flex items-center gap-2">
+									<span className="font-medium text-sm">
+										{statement.transactionCount || 0}
+									</span>
+									<span className="text-muted-foreground text-xs">
+										transactions
+									</span>
+								</div>
+							</TableCell>
+							<TableCell>
+								<div className="flex items-center gap-2">
+									<FileTextIcon className="h-4 w-4 text-muted-foreground" />
+									<span className="text-sm">{statement.sourceFileName}</span>
+								</div>
+							</TableCell>
+							<TableCell className="text-right">
+								<div className="flex justify-end gap-2">
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => handleEditStatement(statement)}
+									>
+										<EditIcon className="h-4 w-4" />
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => handleDownloadStatement(statement.id)}
+										disabled={downloadStatement.isPending}
+									>
+										<DownloadIcon className="h-4 w-4" />
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => handleParseStatement(statement.id)}
+										disabled={parseStatement.isPending}
+									>
+										<ScanIcon className="h-4 w-4" />
+									</Button>
+									<AlertDialog>
+										<AlertDialogTrigger asChild>
+											<Button variant="destructive" size="sm">
+												<TrashIcon className="h-4 w-4" />
+											</Button>
+										</AlertDialogTrigger>
+										<AlertDialogContent>
+											<AlertDialogHeader>
+												<AlertDialogTitle>Delete Statement</AlertDialogTitle>
+												<AlertDialogDescription>
+													Are you sure you want to delete this statement
+													{statement.periodEndDate
+														? ` from ${formatDate(statement.periodEndDate)}`
+														: ""}
+													? This action cannot be undone.
+												</AlertDialogDescription>
+											</AlertDialogHeader>
+											<AlertDialogFooter>
+												<AlertDialogCancel>Cancel</AlertDialogCancel>
+												<AlertDialogAction
+													onClick={() => handleDeleteStatement(statement.id)}
+												>
+													Delete
+												</AlertDialogAction>
+											</AlertDialogFooter>
+										</AlertDialogContent>
+									</AlertDialog>
+								</div>
+							</TableCell>
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
+			<EditStatementDialog
+				statement={selectedStatement}
+				open={editDialogOpen}
+				onOpenChange={setEditDialogOpen}
+				onSave={handleUpdateStatement}
+				isLoading={updateStatement.isPending}
+			/>
+		</>
 	);
 }

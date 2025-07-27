@@ -14,17 +14,27 @@ import {
 } from "grandeo/server/db/schema";
 
 export const accountsRouter = createTRPCRouter({
-	getAll: publicProcedure.query(({ ctx }) => {
-		return ctx.db.select().from(currentAccounts);
-	}),
-
-	getById: publicProcedure
-		.input(z.object({ id: z.string() }))
+	getAll: publicProcedure
+		.input(z.object({ workspaceId: z.string() }))
 		.query(({ ctx, input }) => {
 			return ctx.db
 				.select()
 				.from(currentAccounts)
-				.where(eq(currentAccounts.id, input.id))
+				.where(eq(currentAccounts.workspaceId, input.workspaceId));
+		}),
+
+	getById: publicProcedure
+		.input(z.object({ id: z.string(), workspaceId: z.string() }))
+		.query(({ ctx, input }) => {
+			return ctx.db
+				.select()
+				.from(currentAccounts)
+				.where(
+					and(
+						eq(currentAccounts.id, input.id),
+						eq(currentAccounts.workspaceId, input.workspaceId),
+					),
+				)
 				.limit(1)
 				.then((res) => res[0]);
 		}),
@@ -32,16 +42,18 @@ export const accountsRouter = createTRPCRouter({
 	create: publicProcedure
 		.input(
 			z.object({
-				name: z.string().min(1, "Name is required").trim().toLowerCase(),
+				name: z.string().min(1, "Name is required").trim(),
 				accountType: z
 					.enum(["current_account", "credit_card"])
 					.default("current_account"),
+				workspaceId: z.string(),
 			}),
 		)
 		.mutation(({ ctx, input }) => {
 			return ctx.db.insert(currentAccounts).values({
 				name: input.name,
 				accountType: input.accountType,
+				workspaceId: input.workspaceId,
 			});
 		}),
 
@@ -82,13 +94,18 @@ export const accountsRouter = createTRPCRouter({
 		}),
 
 	recomputeBalances: publicProcedure
-		.input(z.object({ id: z.string() }))
+		.input(z.object({ id: z.string(), workspaceId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			try {
 				// Delete existing computed balances for this account
 				await ctx.db
 					.delete(accountBalances)
-					.where(eq(accountBalances.currentAccountId, input.id));
+					.where(
+						and(
+							eq(accountBalances.currentAccountId, input.id),
+							eq(accountBalances.workspaceId, input.workspaceId),
+						),
+					);
 
 				// Get all transactions for this account
 				const accountTransactions = await ctx.db
@@ -97,7 +114,12 @@ export const accountsRouter = createTRPCRouter({
 						date: transactions.date,
 					})
 					.from(transactions)
-					.where(eq(transactions.currentAccountId, input.id))
+					.where(
+						and(
+							eq(transactions.currentAccountId, input.id),
+							eq(transactions.workspaceId, input.workspaceId),
+						),
+					)
 					.orderBy(asc(transactions.date));
 
 				// Get statement balances for reference points
@@ -112,6 +134,7 @@ export const accountsRouter = createTRPCRouter({
 					.where(
 						and(
 							eq(statements.currentAccountId, input.id),
+							eq(statements.workspaceId, input.workspaceId),
 							isNotNull(statements.openingBalance),
 							isNotNull(statements.closingBalance),
 							isNotNull(statements.periodStartDate),
@@ -119,8 +142,6 @@ export const accountsRouter = createTRPCRouter({
 						),
 					)
 					.orderBy(asc(statements.periodStartDate));
-
-				console.log(statementBalances);
 
 				if (accountTransactions.length === 0) {
 					// No transactions, create zero balances for the last year
@@ -135,6 +156,7 @@ export const accountsRouter = createTRPCRouter({
 						d.setDate(d.getDate() + 1)
 					) {
 						balancesToInsert.push({
+							workspaceId: input.workspaceId,
 							currentAccountId: input.id,
 							date: new Date(d),
 							balance: 0,
@@ -259,10 +281,7 @@ export const accountsRouter = createTRPCRouter({
 				} else {
 					// No valid statement data, start from earliest transaction or 1 year ago
 					startDate = new Date(
-						Math.max(
-							oneYearAgo.getTime(),
-							new Date(earliestTransaction.date).getTime(),
-						),
+						Math.max(new Date(earliestTransaction.date).getTime()),
 					);
 					currentBalance = 0;
 					hasValidBalance = false; // Will show 0 until we find a statement
@@ -322,6 +341,7 @@ export const accountsRouter = createTRPCRouter({
 					}
 
 					balancesToInsert.push({
+						workspaceId: input.workspaceId,
 						currentAccountId: input.id,
 						date: new Date(d),
 						balance: hasValidBalance
@@ -348,6 +368,7 @@ export const accountsRouter = createTRPCRouter({
 		.input(
 			z.object({
 				id: z.string(),
+				workspaceId: z.string(),
 				days: z.number().min(1).max(365).default(30),
 			}),
 		)
@@ -368,6 +389,7 @@ export const accountsRouter = createTRPCRouter({
 					.where(
 						and(
 							eq(accountBalances.currentAccountId, input.id),
+							eq(accountBalances.workspaceId, input.workspaceId),
 							lte(accountBalances.date, endDate),
 							gte(accountBalances.date, startDate),
 						),

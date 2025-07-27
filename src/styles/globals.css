@@ -123,3 +123,8 @@
         @apply bg-background text-foreground;
     }
 }
+
+.cl-userButtonBox {
+    justify-content: space-between;
+    width: 223px;
+}

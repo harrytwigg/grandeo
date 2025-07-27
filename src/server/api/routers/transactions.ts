@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, ne, or, sql } from "drizzle-orm";
 import {
 	createTRPCRouter,
 	protectedProcedure,
@@ -13,10 +13,39 @@ import {
 import { z } from "zod";
 
 export const transactionsRouter = createTRPCRouter({
-	getByAccountId: publicProcedure
-		.input(z.object({ accountId: z.string() }))
-		.query(({ ctx, input }) => {
-			return ctx.db
+	getByAccountId: protectedProcedure
+		.input(
+			z.object({
+				accountId: z.string(),
+				workspaceId: z.string(),
+				page: z.number().min(1).default(1),
+				pageSize: z.number().min(1).max(100).default(20),
+				handled: z.enum(["all", "handled", "unhandled"]).default("all"),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			const offset = (input.page - 1) * input.pageSize;
+
+			// Build where conditions
+			const whereConditions = [
+				eq(transactions.currentAccountId, input.accountId),
+				eq(transactions.workspaceId, input.workspaceId),
+			];
+
+			if (input.handled === "handled") {
+				whereConditions.push(eq(transactions.handled, true));
+			} else if (input.handled === "unhandled") {
+				whereConditions.push(eq(transactions.handled, false));
+			}
+
+			// Get total count
+			const totalCount = await ctx.db
+				.select({ count: count() })
+				.from(transactions)
+				.where(and(...whereConditions));
+
+			// Get paginated transactions
+			const transactionsList = await ctx.db
 				.select({
 					id: transactions.id,
 					currentAccountId: transactions.currentAccountId,
@@ -37,8 +66,25 @@ export const transactionsRouter = createTRPCRouter({
 					expenseCategories,
 					eq(transactions.expenseCategoryId, expenseCategories.id),
 				)
-				.where(eq(transactions.currentAccountId, input.accountId))
-				.orderBy(desc(transactions.date));
+				.where(and(...whereConditions))
+				.orderBy(desc(transactions.date))
+				.limit(input.pageSize)
+				.offset(offset);
+
+			const total = totalCount[0]?.count || 0;
+			const totalPages = Math.ceil(total / input.pageSize);
+
+			return {
+				transactions: transactionsList,
+				pagination: {
+					page: input.page,
+					pageSize: input.pageSize,
+					total,
+					totalPages,
+					hasNext: input.page < totalPages,
+					hasPrev: input.page > 1,
+				},
+			};
 		}),
 
 	getById: publicProcedure
@@ -104,10 +150,11 @@ export const transactionsRouter = createTRPCRouter({
 		}),
 
 	// New endpoints for transaction splits
-	createSplits: publicProcedure
+	createSplits: protectedProcedure
 		.input(
 			z.object({
 				sourceTransactionId: z.string(),
+				workspaceId: z.string(),
 				splits: z
 					.array(
 						z.object({
@@ -122,9 +169,17 @@ export const transactionsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			// Validate that split amounts sum to the original transaction amount
 			const sourceTransaction = await ctx.db
-				.select({ amountInPounds: transactions.amountInPounds })
+				.select({ 
+					amountInPounds: transactions.amountInPounds,
+					workspaceId: transactions.workspaceId,
+				})
 				.from(transactions)
-				.where(eq(transactions.id, input.sourceTransactionId))
+				.where(
+					and(
+						eq(transactions.id, input.sourceTransactionId),
+						eq(transactions.workspaceId, input.workspaceId),
+					),
+				)
 				.limit(1);
 
 			if (!sourceTransaction[0]) {
@@ -147,6 +202,7 @@ export const transactionsRouter = createTRPCRouter({
 			// Insert all splits
 			return ctx.db.insert(transactionSplits).values(
 				input.splits.map((split) => ({
+					workspaceId: input.workspaceId,
 					sourceTransactionId: input.sourceTransactionId,
 					currentAccountId: split.currentAccountId,
 					amountInPounds: split.amountInPounds,
@@ -373,9 +429,10 @@ export const transactionsRouter = createTRPCRouter({
 		}),
 
 	// Create a manual split between accounts
-	createManualSplit: publicProcedure
+	createManualSplit: protectedProcedure
 		.input(
 			z.object({
+				workspaceId: z.string(),
 				sourceAccountId: z.string(),
 				targetAccountId: z.string(),
 				amount: z.number().positive(),
@@ -383,19 +440,29 @@ export const transactionsRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const { sourceAccountId, targetAccountId, amount, description } = input;
+			const { workspaceId, sourceAccountId, targetAccountId, amount, description } = input;
 
-			// Validate that accounts exist
+			// Validate that accounts exist and belong to the workspace
 			const [sourceAccount, targetAccount] = await Promise.all([
 				ctx.db
 					.select()
 					.from(currentAccounts)
-					.where(eq(currentAccounts.id, sourceAccountId))
+					.where(
+						and(
+							eq(currentAccounts.id, sourceAccountId),
+							eq(currentAccounts.workspaceId, workspaceId),
+						),
+					)
 					.limit(1),
 				ctx.db
 					.select()
 					.from(currentAccounts)
-					.where(eq(currentAccounts.id, targetAccountId))
+					.where(
+						and(
+							eq(currentAccounts.id, targetAccountId),
+							eq(currentAccounts.workspaceId, workspaceId),
+						),
+					)
 					.limit(1),
 			]);
 
@@ -413,6 +480,7 @@ export const transactionsRouter = createTRPCRouter({
 			const result = await ctx.db
 				.insert(transactionSplits)
 				.values({
+					workspaceId,
 					sourceAccountId,
 					currentAccountId: targetAccountId,
 					amountInPounds: amount,
