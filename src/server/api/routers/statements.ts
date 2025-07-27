@@ -111,8 +111,11 @@ const statementSchema = z.object({
 });
 
 export const statementsRouter = createTRPCRouter({
-	getByAccountId: publicProcedure
-		.input(z.object({ accountId: z.string() }))
+	getByAccountId: protectedProcedure
+		.input(z.object({ 
+			accountId: z.string(),
+			workspaceId: z.string(),
+		}))
 		.query(async ({ ctx, input }) => {
 			// Get statements with transaction count
 			const statementsWithCount = await ctx.db
@@ -134,27 +137,47 @@ export const statementsRouter = createTRPCRouter({
 					transactions,
 					eq(transactions.sourceStatementId, statements.id),
 				)
-				.where(eq(statements.currentAccountId, input.accountId))
+				.where(
+					and(
+						eq(statements.currentAccountId, input.accountId),
+						eq(statements.workspaceId, input.workspaceId),
+					),
+				)
 				.groupBy(statements.id)
 				.orderBy(desc(statements.periodEndDate));
 
 			return statementsWithCount;
 		}),
 
-	getById: publicProcedure
-		.input(z.object({ id: z.string() }))
-		.query(({ ctx, input }) => {
-			return ctx.db
+	getById: protectedProcedure
+		.input(z.object({ 
+			id: z.string(),
+			workspaceId: z.string(),
+		}))
+		.query(async ({ ctx, input }) => {
+			const result = await ctx.db
 				.select()
 				.from(statements)
-				.where(eq(statements.id, input.id))
+				.where(
+					and(
+						eq(statements.id, input.id),
+						eq(statements.workspaceId, input.workspaceId),
+					),
+				)
 				.limit(1);
+
+			if (result.length === 0) {
+				throw new Error("Statement not found or access denied");
+			}
+
+			return result[0];
 		}),
 
-	create: publicProcedure
+	create: protectedProcedure
 		.input(
 			z.object({
 				currentAccountId: z.string(),
+				workspaceId: z.string(),
 				fileBase64: z.string(),
 				fileName: z.string(),
 			}),
@@ -177,6 +200,7 @@ export const statementsRouter = createTRPCRouter({
 			const result = await ctx.db
 				.insert(statements)
 				.values({
+					workspaceId: input.workspaceId,
 					currentAccountId: input.currentAccountId,
 					periodStartDate: null,
 					periodEndDate: null,
@@ -198,10 +222,11 @@ export const statementsRouter = createTRPCRouter({
 			});
 		}),
 
-	update: publicProcedure
+	update: protectedProcedure
 		.input(
 			z.object({
 				id: z.string(),
+				workspaceId: z.string(),
 				periodStartDate: z.date().nullable(),
 				periodEndDate: z.date().nullable(),
 				openingBalance: z.number().nullable(),
@@ -209,7 +234,23 @@ export const statementsRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const { id, ...updateData } = input;
+			const { id, workspaceId, ...updateData } = input;
+
+			// Verify statement belongs to user's workspace
+			const statement = await ctx.db
+				.select()
+				.from(statements)
+				.where(
+					and(
+						eq(statements.id, id),
+						eq(statements.workspaceId, workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (statement.length === 0) {
+				throw new Error("Statement not found or access denied");
+			}
 
 			return ctx.db
 				.update(statements)
@@ -219,19 +260,27 @@ export const statementsRouter = createTRPCRouter({
 				.then((res) => res[0]);
 		}),
 
-	delete: publicProcedure
-		.input(z.object({ id: z.string() }))
+	delete: protectedProcedure
+		.input(z.object({ 
+			id: z.string(),
+			workspaceId: z.string(),
+		}))
 		.mutation(async ({ ctx, input }) => {
-			// First, fetch the statement to get the S3 path
+			// First, fetch the statement to get the S3 path and verify workspace access
 			const statement = await ctx.db
 				.select()
 				.from(statements)
-				.where(eq(statements.id, input.id))
+				.where(
+					and(
+						eq(statements.id, input.id),
+						eq(statements.workspaceId, input.workspaceId),
+					),
+				)
 				.limit(1)
 				.then((res) => res[0]);
 
 			if (!statement) {
-				throw new Error("Statement not found");
+				throw new Error("Statement not found or access denied");
 			}
 
 			// Delete the file from S3
@@ -240,19 +289,27 @@ export const statementsRouter = createTRPCRouter({
 			return ctx.db.delete(statements).where(eq(statements.id, input.id));
 		}),
 
-	download: publicProcedure
-		.input(z.object({ id: z.string() }))
+	download: protectedProcedure
+		.input(z.object({ 
+			id: z.string(),
+			workspaceId: z.string(),
+		}))
 		.mutation(async ({ ctx, input }) => {
-			// Get the statement record
+			// Get the statement record and verify workspace access
 			const statement = await ctx.db
 				.select()
 				.from(statements)
-				.where(eq(statements.id, input.id))
+				.where(
+					and(
+						eq(statements.id, input.id),
+						eq(statements.workspaceId, input.workspaceId),
+					),
+				)
 				.limit(1)
 				.then((res) => res[0]);
 
 			if (!statement) {
-				throw new Error("Statement not found");
+				throw new Error("Statement not found or access denied");
 			}
 
 			// Get file from S3
@@ -268,9 +325,28 @@ export const statementsRouter = createTRPCRouter({
 			};
 		}),
 
-	parseStatement: publicProcedure
-		.input(z.object({ id: z.string() }))
+	parseStatement: protectedProcedure
+		.input(z.object({ 
+			id: z.string(),
+			workspaceId: z.string(),
+		}))
 		.mutation(async ({ ctx, input }) => {
+			// Verify statement belongs to user's workspace
+			const statement = await ctx.db
+				.select()
+				.from(statements)
+				.where(
+					and(
+						eq(statements.id, input.id),
+						eq(statements.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (statement.length === 0) {
+				throw new Error("Statement not found or access denied");
+			}
+
 			await handleParseStatement({
 				id: input.id,
 				db: ctx.db,
@@ -365,6 +441,7 @@ const handleParseStatement = async ({
 			// Only add the transaction if no existing statement covers this date
 			if (existingStatements.length === 0) {
 				newTransactionRecords.push({
+					workspaceId: statement.workspaceId,
 					currentAccountId: statement.currentAccountId,
 					sourceStatementId: id,
 					amountInPounds: transaction.amount,

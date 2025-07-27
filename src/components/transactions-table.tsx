@@ -22,7 +22,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "grandeo/components/ui/table";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import { PoundSterlingIcon } from "lucide-react";
 import { useState } from "react";
 import { TransactionRow } from "./transaction-row";
@@ -36,6 +36,7 @@ export function TransactionsTable({
 	accountId,
 	onRefreshOwedBalance,
 }: TransactionsTableProps) {
+	const workspaceApi = useWorkspaceApi();
 	const [currentPage, setCurrentPage] = useState(1);
 	const [handledFilter, setHandledFilter] = useState<
 		"all" | "handled" | "unhandled"

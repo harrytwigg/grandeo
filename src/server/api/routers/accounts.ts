@@ -14,7 +14,7 @@ import {
 } from "grandeo/server/db/schema";
 
 export const accountsRouter = createTRPCRouter({
-	getAll: publicProcedure
+	getAll: protectedProcedure
 		.input(z.object({ workspaceId: z.string() }))
 		.query(({ ctx, input }) => {
 			return ctx.db
@@ -23,7 +23,7 @@ export const accountsRouter = createTRPCRouter({
 				.where(eq(currentAccounts.workspaceId, input.workspaceId));
 		}),
 
-	getById: publicProcedure
+	getById: protectedProcedure
 		.input(z.object({ id: z.string(), workspaceId: z.string() }))
 		.query(({ ctx, input }) => {
 			return ctx.db
@@ -39,7 +39,7 @@ export const accountsRouter = createTRPCRouter({
 				.then((res) => res[0]);
 		}),
 
-	create: publicProcedure
+	create: protectedProcedure
 		.input(
 			z.object({
 				name: z.string().min(1, "Name is required").trim(),
@@ -57,7 +57,7 @@ export const accountsRouter = createTRPCRouter({
 			});
 		}),
 
-	update: publicProcedure
+	update: protectedProcedure
 		.input(
 			z.object({
 				id: z.string(),
@@ -85,7 +85,7 @@ export const accountsRouter = createTRPCRouter({
 				.where(eq(currentAccounts.id, input.id));
 		}),
 
-	delete: publicProcedure
+	delete: protectedProcedure
 		.input(z.object({ id: z.string() }))
 		.mutation(({ ctx, input }) => {
 			return ctx.db
@@ -93,7 +93,7 @@ export const accountsRouter = createTRPCRouter({
 				.where(eq(currentAccounts.id, input.id));
 		}),
 
-	recomputeBalances: publicProcedure
+	recomputeBalances: protectedProcedure
 		.input(z.object({ id: z.string(), workspaceId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			try {
@@ -364,7 +364,7 @@ export const accountsRouter = createTRPCRouter({
 			}
 		}),
 
-	getBalanceHistory: publicProcedure
+	getBalanceHistory: protectedProcedure
 		.input(
 			z.object({
 				id: z.string(),

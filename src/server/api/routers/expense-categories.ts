@@ -9,7 +9,7 @@ import {
 import { expenseCategories } from "grandeo/server/db/schema";
 
 export const expenseCategoriesRouter = createTRPCRouter({
-	getAll: publicProcedure
+	getAll: protectedProcedure
 		.input(z.object({ workspaceId: z.string() }))
 		.query(({ ctx, input }) => {
 			return ctx.db
@@ -18,7 +18,7 @@ export const expenseCategoriesRouter = createTRPCRouter({
 				.where(eq(expenseCategories.workspaceId, input.workspaceId));
 		}),
 
-	getById: publicProcedure
+	getById: protectedProcedure
 		.input(z.object({ id: z.string(), workspaceId: z.string() }))
 		.query(({ ctx, input }) => {
 			return ctx.db
@@ -30,13 +30,14 @@ export const expenseCategoriesRouter = createTRPCRouter({
 						eq(expenseCategories.workspaceId, input.workspaceId),
 					),
 				)
-				.limit(1);
+				.limit(1)
+				.then((res) => res[0]);
 		}),
 
-	create: publicProcedure
+	create: protectedProcedure
 		.input(
 			z.object({
-				name: z.string().min(1, "Name is required").trim().toLowerCase(),
+				name: z.string().min(1, "Name is required").trim(),
 				workspaceId: z.string(),
 			}),
 		)
@@ -47,7 +48,7 @@ export const expenseCategoriesRouter = createTRPCRouter({
 			});
 		}),
 
-	update: publicProcedure
+	update: protectedProcedure
 		.input(
 			z.object({
 				id: z.string(),
@@ -70,7 +71,7 @@ export const expenseCategoriesRouter = createTRPCRouter({
 				);
 		}),
 
-	delete: publicProcedure
+	delete: protectedProcedure
 		.input(z.object({ id: z.string(), workspaceId: z.string() }))
 		.mutation(({ ctx, input }) => {
 			return ctx.db

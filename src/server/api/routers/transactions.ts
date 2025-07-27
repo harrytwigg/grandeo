@@ -211,9 +211,28 @@ export const transactionsRouter = createTRPCRouter({
 			);
 		}),
 
-	getSplitsByTransactionId: publicProcedure
-		.input(z.object({ transactionId: z.string() }))
-		.query(({ ctx, input }) => {
+	getSplitsByTransactionId: protectedProcedure
+		.input(z.object({ 
+			transactionId: z.string(),
+			workspaceId: z.string(),
+		}))
+		.query(async ({ ctx, input }) => {
+			// Verify transaction belongs to user's workspace
+			const transaction = await ctx.db
+				.select()
+				.from(transactions)
+				.where(
+					and(
+						eq(transactions.id, input.transactionId),
+						eq(transactions.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (transaction.length === 0) {
+				throw new Error("Transaction not found or access denied");
+			}
+
 			return ctx.db
 				.select({
 					id: transactionSplits.id,
@@ -232,29 +251,96 @@ export const transactionsRouter = createTRPCRouter({
 					currentAccounts,
 					eq(transactionSplits.currentAccountId, currentAccounts.id),
 				)
-				.where(eq(transactionSplits.sourceTransactionId, input.transactionId));
+				.where(
+					and(
+						eq(transactionSplits.sourceTransactionId, input.transactionId),
+						eq(transactionSplits.workspaceId, input.workspaceId),
+					),
+				);
 		}),
 
-	deleteSplit: publicProcedure
-		.input(z.object({ splitId: z.string() }))
-		.mutation(({ ctx, input }) => {
+	deleteSplit: protectedProcedure
+		.input(z.object({ 
+			splitId: z.string(),
+			workspaceId: z.string(),
+		}))
+		.mutation(async ({ ctx, input }) => {
+			// Verify split belongs to user's workspace
+			const split = await ctx.db
+				.select()
+				.from(transactionSplits)
+				.where(
+					and(
+						eq(transactionSplits.id, input.splitId),
+						eq(transactionSplits.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (split.length === 0) {
+				throw new Error("Split not found or access denied");
+			}
+
 			return ctx.db
 				.delete(transactionSplits)
 				.where(eq(transactionSplits.id, input.splitId));
 		}),
 
-	deleteAllSplits: publicProcedure
-		.input(z.object({ transactionId: z.string() }))
-		.mutation(({ ctx, input }) => {
+	deleteAllSplits: protectedProcedure
+		.input(z.object({ 
+			transactionId: z.string(),
+			workspaceId: z.string(),
+		}))
+		.mutation(async ({ ctx, input }) => {
+			// Verify transaction belongs to user's workspace
+			const transaction = await ctx.db
+				.select()
+				.from(transactions)
+				.where(
+					and(
+						eq(transactions.id, input.transactionId),
+						eq(transactions.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (transaction.length === 0) {
+				throw new Error("Transaction not found or access denied");
+			}
+
 			return ctx.db
 				.delete(transactionSplits)
-				.where(eq(transactionSplits.sourceTransactionId, input.transactionId));
+				.where(
+					and(
+						eq(transactionSplits.sourceTransactionId, input.transactionId),
+						eq(transactionSplits.workspaceId, input.workspaceId),
+					),
+				);
 		}),
 
 	// New endpoint to calculate owed balance for an account (including manual splits)
-	getOwedBalanceByAccountId: publicProcedure
-		.input(z.object({ accountId: z.string() }))
+	getOwedBalanceByAccountId: protectedProcedure
+		.input(z.object({ 
+			accountId: z.string(),
+			workspaceId: z.string(),
+		}))
 		.query(async ({ ctx, input }) => {
+			// Verify account belongs to user's workspace
+			const account = await ctx.db
+				.select()
+				.from(currentAccounts)
+				.where(
+					and(
+						eq(currentAccounts.id, input.accountId),
+						eq(currentAccounts.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (account.length === 0) {
+				throw new Error("Account not found or access denied");
+			}
+
 			// Get all splits where the source transaction is from this account
 			// but the split is allocated to a different account (money this account owes)
 			const owedByThisAccountFromTransactions = await ctx.db
@@ -269,6 +355,7 @@ export const transactionsRouter = createTRPCRouter({
 				.where(
 					and(
 						eq(transactions.currentAccountId, input.accountId),
+						eq(transactions.workspaceId, input.workspaceId),
 						ne(transactionSplits.currentAccountId, input.accountId),
 					),
 				);
@@ -287,6 +374,7 @@ export const transactionsRouter = createTRPCRouter({
 				.where(
 					and(
 						eq(transactionSplits.currentAccountId, input.accountId),
+						eq(transactions.workspaceId, input.workspaceId),
 						ne(transactions.currentAccountId, input.accountId),
 					),
 				);
@@ -301,6 +389,7 @@ export const transactionsRouter = createTRPCRouter({
 				.where(
 					and(
 						eq(transactionSplits.sourceAccountId, input.accountId),
+						eq(transactionSplits.workspaceId, input.workspaceId),
 						ne(transactionSplits.currentAccountId, input.accountId),
 						sql`${transactionSplits.sourceTransactionId} IS NULL`, // Manual splits have no source transaction
 					),
@@ -316,6 +405,7 @@ export const transactionsRouter = createTRPCRouter({
 				.where(
 					and(
 						eq(transactionSplits.currentAccountId, input.accountId),
+						eq(transactionSplits.workspaceId, input.workspaceId),
 						ne(transactionSplits.sourceAccountId, input.accountId),
 						sql`${transactionSplits.sourceTransactionId} IS NULL`, // Manual splits have no source transaction
 					),
@@ -340,9 +430,28 @@ export const transactionsRouter = createTRPCRouter({
 		}),
 
 	// Get all transaction splits involving an account (including manual splits)
-	getSplitsByAccountId: publicProcedure
-		.input(z.object({ accountId: z.string() }))
+	getSplitsByAccountId: protectedProcedure
+		.input(z.object({ 
+			accountId: z.string(),
+			workspaceId: z.string(),
+		}))
 		.query(async ({ ctx, input }) => {
+			// Verify account belongs to user's workspace
+			const account = await ctx.db
+				.select()
+				.from(currentAccounts)
+				.where(
+					and(
+						eq(currentAccounts.id, input.accountId),
+						eq(currentAccounts.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (account.length === 0) {
+				throw new Error("Account not found or access denied");
+			}
+
 			// Get splits where:
 			// 1. The split is TO this account (from another account's transaction or manual split)
 			// 2. The split is FROM this account's transaction TO another account
@@ -379,6 +488,7 @@ export const transactionsRouter = createTRPCRouter({
 					transactions,
 					eq(transactionSplits.sourceTransactionId, transactions.id),
 				)
+				.where(eq(transactionSplits.workspaceId, input.workspaceId))
 				.orderBy(desc(transactionSplits.createdAt));
 
 			// Get source accounts for manual splits separately
@@ -392,7 +502,12 @@ export const transactionsRouter = createTRPCRouter({
 								accountType: currentAccounts.accountType,
 							})
 							.from(currentAccounts)
-							.where(eq(currentAccounts.id, split.sourceAccountId))
+							.where(
+								and(
+									eq(currentAccounts.id, split.sourceAccountId),
+									eq(currentAccounts.workspaceId, input.workspaceId),
+								),
+							)
 							.limit(1);
 
 						return {
