@@ -103,21 +103,25 @@ export function AccountBalanceChart({
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => recomputeBalances.mutate(
-								{ 
-									id: accountId,
-									workspaceId: workspaceApi.workspaceId ?? ""
-								},
-								{
-									onSuccess: () => {
-										toast.success("Balances recomputed successfully");
-										refetch();
+							onClick={() =>
+								recomputeBalances.mutate(
+									{
+										id: accountId,
+										workspaceId: workspaceApi.workspaceId ?? "",
 									},
-									onError: (error) => {
-										toast.error(`Failed to recompute balances: ${error.message}`);
+									{
+										onSuccess: () => {
+											toast.success("Balances recomputed successfully");
+											refetch();
+										},
+										onError: (error) => {
+											toast.error(
+												`Failed to recompute balances: ${error.message}`,
+											);
+										},
 									},
-								}
-							)}
+								)
+							}
 							disabled={recomputeBalances.isPending}
 						>
 							<RefreshCwIcon
@@ -174,21 +178,25 @@ export function AccountBalanceChart({
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={() => recomputeBalances.mutate(
-							{ 
-								id: accountId,
-								workspaceId: workspaceApi.workspaceId ?? ""
-							},
-							{
-								onSuccess: () => {
-									toast.success("Balances recomputed successfully");
-									refetch();
+						onClick={() =>
+							recomputeBalances.mutate(
+								{
+									id: accountId,
+									workspaceId: workspaceApi.workspaceId ?? "",
 								},
-								onError: (error) => {
-									toast.error(`Failed to recompute balances: ${error.message}`);
+								{
+									onSuccess: () => {
+										toast.success("Balances recomputed successfully");
+										refetch();
+									},
+									onError: (error) => {
+										toast.error(
+											`Failed to recompute balances: ${error.message}`,
+										);
+									},
 								},
-							}
-						)}
+							)
+						}
 						disabled={recomputeBalances.isPending}
 					>
 						<RefreshCwIcon

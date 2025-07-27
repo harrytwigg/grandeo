@@ -6,19 +6,23 @@ import { api } from "grandeo/trpc/react";
 
 interface WorkspaceContextType {
 	currentWorkspaceId: string | null;
-	workspaces: Array<{
-		id: string;
-		name: string;
-		description: string | null;
-		role: string;
-		createdAt: Date | null;
-	}> | undefined;
+	workspaces:
+		| Array<{
+				id: string;
+				name: string;
+				description: string | null;
+				role: string;
+				createdAt: Date | null;
+		  }>
+		| undefined;
 	isLoading: boolean;
 	switchWorkspace: (workspaceId: string) => void;
 	refetchWorkspaces: () => void;
 }
 
-const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
+const WorkspaceContext = createContext<WorkspaceContextType | undefined>(
+	undefined,
+);
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 	const router = useRouter();
@@ -35,7 +39,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
 	// Auto-select first workspace if none selected and workspaces exist
 	useEffect(() => {
-		if (!isLoading && workspaces && workspaces.length > 0 && !currentWorkspaceId) {
+		if (
+			!isLoading &&
+			workspaces &&
+			workspaces.length > 0 &&
+			!currentWorkspaceId
+		) {
 			const firstWorkspace = workspaces[0];
 			if (firstWorkspace) {
 				switchWorkspace(firstWorkspace.id);
@@ -82,95 +91,114 @@ export function useWorkspace() {
 // Custom hook that provides workspace-scoped API calls
 export function useWorkspaceApi() {
 	const { currentWorkspaceId } = useWorkspace();
-	
+
 	return {
 		// Expense Categories
 		expenseCategories: {
-			getAll: () => api.expenseCategories.getAll.useQuery(
-				{ workspaceId: currentWorkspaceId ?? "" },
-				{ enabled: !!currentWorkspaceId }
-			),
+			getAll: () =>
+				api.expenseCategories.getAll.useQuery(
+					{ workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId },
+				),
 			create: () => api.expenseCategories.create.useMutation(),
 			update: () => api.expenseCategories.update.useMutation(),
 			delete: () => api.expenseCategories.delete.useMutation(),
 		},
 		// Current Accounts
 		currentAccounts: {
-			getAll: () => api.currentAccounts.getAll.useQuery(
-				{ workspaceId: currentWorkspaceId ?? "" },
-				{ enabled: !!currentWorkspaceId }
-			),
-			getById: (id: string) => api.currentAccounts.getById.useQuery(
-				{ id, workspaceId: currentWorkspaceId ?? "" },
-				{ enabled: !!currentWorkspaceId && !!id }
-			),
-			getBalanceHistory: (id: string, days = 30) => api.currentAccounts.getBalanceHistory.useQuery(
-				{ id, workspaceId: currentWorkspaceId ?? "", days },
-				{ enabled: !!currentWorkspaceId && !!id }
-			),
+			getAll: () =>
+				api.currentAccounts.getAll.useQuery(
+					{ workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId },
+				),
+			getById: (id: string) =>
+				api.currentAccounts.getById.useQuery(
+					{ id, workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId && !!id },
+				),
+			getBalanceHistory: (id: string, days = 30) =>
+				api.currentAccounts.getBalanceHistory.useQuery(
+					{ id, workspaceId: currentWorkspaceId ?? "", days },
+					{ enabled: !!currentWorkspaceId && !!id },
+				),
 			create: () => api.currentAccounts.create.useMutation(),
 			update: () => api.currentAccounts.update.useMutation(),
 			delete: () => api.currentAccounts.delete.useMutation(),
-			recomputeBalances: () => api.currentAccounts.recomputeBalances.useMutation(),
+			recomputeBalances: () =>
+				api.currentAccounts.recomputeBalances.useMutation(),
 		},
 		// Recurring Expenses
 		recurringExpenses: {
-			getAll: () => api.recurringExpenses.getAll.useQuery(
-				{ workspaceId: currentWorkspaceId ?? "" },
-				{ enabled: !!currentWorkspaceId }
-			),
+			getAll: () =>
+				api.recurringExpenses.getAll.useQuery(
+					{ workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId },
+				),
 			create: () => api.recurringExpenses.create.useMutation(),
 			update: () => api.recurringExpenses.update.useMutation(),
 			delete: () => api.recurringExpenses.delete.useMutation(),
 		},
 		// Transactions
 		transactions: {
-			getByAccountId: (accountId: string, options?: { page?: number; pageSize?: number; handled?: "all" | "handled" | "unhandled" }) => 
+			getByAccountId: (
+				accountId: string,
+				options?: {
+					page?: number;
+					pageSize?: number;
+					handled?: "all" | "handled" | "unhandled";
+				},
+			) =>
 				api.transactions.getByAccountId.useQuery(
-					{ 
-						accountId, 
+					{
+						accountId,
 						workspaceId: currentWorkspaceId ?? "",
-						...options
+						...options,
 					},
-					{ enabled: !!currentWorkspaceId && !!accountId }
+					{ enabled: !!currentWorkspaceId && !!accountId },
 				),
-			getById: (id: string) => api.transactions.getById.useQuery(
-				{ id, workspaceId: currentWorkspaceId ?? "" },
-				{ enabled: !!currentWorkspaceId && !!id }
-			),
-			getSplitsByTransactionId: (transactionId: string) => 
+			getById: (id: string) =>
+				api.transactions.getById.useQuery(
+					{ id, workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId && !!id },
+				),
+			getSplitsByTransactionId: (transactionId: string) =>
 				api.transactions.getSplitsByTransactionId.useQuery(
-					{ 
-						transactionId, 
-						workspaceId: currentWorkspaceId ?? ""
+					{
+						transactionId,
+						workspaceId: currentWorkspaceId ?? "",
 					},
-					{ enabled: !!currentWorkspaceId && !!transactionId }
+					{ enabled: !!currentWorkspaceId && !!transactionId },
 				),
-			getSplitsByAccountId: (accountId: string) => 
+			getSplitsByAccountId: (accountId: string) =>
 				api.transactions.getSplitsByAccountId.useQuery(
-					{ 
-						accountId, 
-						workspaceId: currentWorkspaceId ?? ""
+					{
+						accountId,
+						workspaceId: currentWorkspaceId ?? "",
 					},
-					{ enabled: !!currentWorkspaceId && !!accountId }
+					{ enabled: !!currentWorkspaceId && !!accountId },
 				),
-			updateExpenseCategory: () => api.transactions.updateExpenseCategory.useMutation(),
+			updateExpenseCategory: () =>
+				api.transactions.updateExpenseCategory.useMutation(),
 			updateHandled: () => api.transactions.updateHandled.useMutation(),
 			createSplits: () => api.transactions.createSplits.useMutation(),
 			createManualSplit: () => api.transactions.createManualSplit.useMutation(),
 			deleteSplit: () => api.transactions.deleteSplit.useMutation(),
 			deleteAllSplits: () => api.transactions.deleteAllSplits.useMutation(),
-			getOwedBalanceByAccountId: (accountId: string) => api.transactions.getOwedBalanceByAccountId.useQuery(
-				{ accountId, workspaceId: currentWorkspaceId ?? "" },
-				{ enabled: !!currentWorkspaceId && !!accountId }
-			),
+			delete: () => api.transactions.delete.useMutation(),
+			getOwedBalanceByAccountId: (accountId: string) =>
+				api.transactions.getOwedBalanceByAccountId.useQuery(
+					{ accountId, workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId && !!accountId },
+				),
+			getDebtMatrix: api.transactions.getDebtMatrix,
 		},
 		// Statements
 		statements: {
-			getByAccountId: (accountId: string) => api.statements.getByAccountId.useQuery(
-				{ accountId, workspaceId: currentWorkspaceId ?? "" },
-				{ enabled: !!currentWorkspaceId && !!accountId }
-			),
+			getByAccountId: (accountId: string) =>
+				api.statements.getByAccountId.useQuery(
+					{ accountId, workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId && !!accountId },
+				),
 			create: () => api.statements.create.useMutation(),
 			update: () => api.statements.update.useMutation(),
 			delete: () => api.statements.delete.useMutation(),

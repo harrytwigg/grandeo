@@ -1,10 +1,7 @@
 import { z } from "zod";
 
 import { and, eq } from "drizzle-orm";
-import {
-	createTRPCRouter,
-	protectedProcedure,
-} from "grandeo/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
 import { currentAccounts } from "grandeo/server/db/schema";
 
 export const currentAccountsRouter = createTRPCRouter({
@@ -18,10 +15,12 @@ export const currentAccountsRouter = createTRPCRouter({
 		}),
 
 	getById: protectedProcedure
-		.input(z.object({ 
-			id: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				id: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.query(({ ctx, input }) => {
 			return ctx.db
 				.select()
@@ -99,10 +98,12 @@ export const currentAccountsRouter = createTRPCRouter({
 		}),
 
 	delete: protectedProcedure
-		.input(z.object({ 
-			id: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				id: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			// Verify account belongs to user's workspace
 			const account = await ctx.db

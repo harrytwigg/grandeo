@@ -25,6 +25,7 @@ import { WorkspaceSwitcher } from "grandeo/components/workspace-switcher";
 import {
 	BarChart3Icon,
 	CalendarIcon,
+	CalculatorIcon,
 	CreditCardIcon,
 	HomeIcon,
 	PiggyBankIcon,
@@ -77,6 +78,17 @@ export function DashboardLayout({
 											>
 												<CreditCardIcon className="h-4 w-4" />
 												<span>Accounts</span>
+											</Link>
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+									<SidebarMenuItem>
+										<SidebarMenuButton asChild>
+											<Link
+												href="/debt-matrix"
+												className="flex items-center gap-3"
+											>
+												<CalculatorIcon className="h-4 w-4" />
+												<span>Debt Matrix</span>
 											</Link>
 										</SidebarMenuButton>
 									</SidebarMenuItem>

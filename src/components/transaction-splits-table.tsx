@@ -35,20 +35,20 @@ export function TransactionSplitsTable({
 	accountId,
 }: TransactionSplitsTableProps) {
 	const workspaceApi = useWorkspaceApi();
-	
-	const { 
-		data: splits, 
+
+	const {
+		data: splits,
 		isLoading,
-		refetch: refetchSplits
+		refetch: refetchSplits,
 	} = workspaceApi.transactions.getSplitsByAccountId(accountId);
 
 	const deleteSplitMutation = workspaceApi.transactions.deleteSplit();
 
 	const handleDeleteSplit = (splitId: string) => {
 		deleteSplitMutation.mutate(
-			{ 
-				splitId, 
-				workspaceId: workspaceApi.workspaceId ?? "" 
+			{
+				splitId,
+				workspaceId: workspaceApi.workspaceId ?? "",
 			},
 			{
 				onSuccess: () => {
@@ -56,7 +56,7 @@ export function TransactionSplitsTable({
 					refetchSplits();
 					// Note: For more complex invalidation, we'd need to pass refetch callbacks from parent
 				},
-			}
+			},
 		);
 	};
 

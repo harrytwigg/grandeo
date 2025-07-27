@@ -57,10 +57,8 @@ export function TransactionSplitDialog({
 	const { data: currentAccounts } = workspaceApi.currentAccounts.getAll();
 
 	// Get existing splits for this transaction
-	const { 
-		data: existingSplits, 
-		refetch: refetchSplits 
-	} = workspaceApi.transactions.getSplitsByTransactionId(transaction.id);
+	const { data: existingSplits, refetch: refetchSplits } =
+		workspaceApi.transactions.getSplitsByTransactionId(transaction.id);
 
 	// Mutations
 	const createSplits = workspaceApi.transactions.createSplits();
@@ -194,22 +192,22 @@ export function TransactionSplitDialog({
 					refetchSplits();
 					onSplitsCreated?.();
 				},
-			}
+			},
 		);
 	};
 
 	const handleDeleteAllSplits = () => {
 		deleteAllSplits.mutate(
-			{ 
+			{
 				transactionId: transaction.id,
-				workspaceId: workspaceApi.workspaceId ?? ""
+				workspaceId: workspaceApi.workspaceId ?? "",
 			},
 			{
 				onSuccess: () => {
 					refetchSplits();
 					onSplitsCreated?.();
 				},
-			}
+			},
 		);
 	};
 

@@ -234,6 +234,7 @@ export function TransactionsTable({
 						<TableHead>Amount</TableHead>
 						<TableHead>Handled</TableHead>
 						<TableHead className="text-right">Actions</TableHead>
+						<TableHead />
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -244,6 +245,7 @@ export function TransactionsTable({
 							onCategoryChange={handleRefreshTransactions}
 							onHandledChange={handleRefreshTransactions}
 							onSplitsChange={handleRefreshTransactions}
+							onDelete={handleRefreshTransactions}
 						/>
 					))}
 				</TableBody>

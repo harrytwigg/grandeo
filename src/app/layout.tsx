@@ -38,9 +38,7 @@ export default function RootLayout({
 								<WorkspaceProvider>{children}</WorkspaceProvider>
 							</UserInitializer>
 						</SignedIn>
-						<SignedOut>
-							{children}
-						</SignedOut>
+						<SignedOut>{children}</SignedOut>
 					</TRPCReactProvider>
 				</body>
 			</html>

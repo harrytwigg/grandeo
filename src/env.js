@@ -20,16 +20,13 @@ export const env = createEnv({
 					return true;
 				},
 				{
-					message: "DATABASE_AUTH_TOKEN is required in development",
+					message: "DATABASE_AUTH_TOKEN is required in production",
 				},
 			),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
 		DATA_BUCKET_NAME: z.string(),
-
-		AWS_ACCESS_KEY_ID: z.string(),
-		AWS_SECRET_ACCESS_KEY: z.string(),
 		AWS_REGION: z.string().default("eu-west-2"),
 		CLERK_SECRET_KEY: z.string(),
 	},
@@ -52,8 +49,6 @@ export const env = createEnv({
 		DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN,
 		NODE_ENV: process.env.NODE_ENV,
 		DATA_BUCKET_NAME: process.env.DATA_BUCKET_NAME,
-		AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
-		AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
 		AWS_REGION: process.env.AWS_REGION,
 		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
 			process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,

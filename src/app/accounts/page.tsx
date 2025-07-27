@@ -88,18 +88,21 @@ export default function CurrentAccountsPage() {
 
 	const handleCreateAccount = () => {
 		if (newAccountName.trim() && workspaceApi.workspaceId) {
-			createAccount.mutate({
-				name: newAccountName.trim(),
-				accountType: newAccountType,
-				workspaceId: workspaceApi.workspaceId,
-			} as any, {
-				onSuccess: () => {
-					refetch();
-					setIsCreateDialogOpen(false);
-					setNewAccountName("");
-					setNewAccountType("current_account");
+			createAccount.mutate(
+				{
+					name: newAccountName.trim(),
+					accountType: newAccountType,
+					workspaceId: workspaceApi.workspaceId,
+				} as any,
+				{
+					onSuccess: () => {
+						refetch();
+						setIsCreateDialogOpen(false);
+						setNewAccountName("");
+						setNewAccountType("current_account");
+					},
 				},
-			});
+			);
 		}
 	};
 
@@ -118,33 +121,39 @@ export default function CurrentAccountsPage() {
 
 	const handleUpdateAccount = () => {
 		if (editingAccount?.name.trim() && workspaceApi.workspaceId) {
-			updateAccount.mutate({
-				id: editingAccount.id,
-				name: editingAccount.name.trim(),
-				accountType: editingAccount.accountType as
-					| "current_account"
-					| "credit_card",
-				workspaceId: workspaceApi.workspaceId,
-			} as any, {
-				onSuccess: () => {
-					refetch();
-					setIsEditDialogOpen(false);
-					setEditingAccount(null);
+			updateAccount.mutate(
+				{
+					id: editingAccount.id,
+					name: editingAccount.name.trim(),
+					accountType: editingAccount.accountType as
+						| "current_account"
+						| "credit_card",
+					workspaceId: workspaceApi.workspaceId,
+				} as any,
+				{
+					onSuccess: () => {
+						refetch();
+						setIsEditDialogOpen(false);
+						setEditingAccount(null);
+					},
 				},
-			});
+			);
 		}
 	};
 
 	const handleDeleteAccount = (id: string) => {
 		if (workspaceApi.workspaceId) {
-			deleteAccount.mutate({ 
-				id, 
-				workspaceId: workspaceApi.workspaceId 
-			} as any, {
-				onSuccess: () => {
-					refetch();
+			deleteAccount.mutate(
+				{
+					id,
+					workspaceId: workspaceApi.workspaceId,
+				} as any,
+				{
+					onSuccess: () => {
+						refetch();
+					},
 				},
-			});
+			);
 		}
 	};
 

@@ -1,8 +1,5 @@
 import { and, count, desc, eq, ne, or, sql } from "drizzle-orm";
-import {
-	createTRPCRouter,
-	protectedProcedure,
-} from "grandeo/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
 import {
 	currentAccounts,
 	expenseCategories,
@@ -87,10 +84,12 @@ export const transactionsRouter = createTRPCRouter({
 		}),
 
 	getById: protectedProcedure
-		.input(z.object({ 
-			id: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				id: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.query(async ({ ctx, input }) => {
 			const result = await ctx.db
 				.select({
@@ -217,7 +216,7 @@ export const transactionsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			// Validate that split amounts sum to the original transaction amount
 			const sourceTransaction = await ctx.db
-				.select({ 
+				.select({
 					amountInPounds: transactions.amountInPounds,
 					workspaceId: transactions.workspaceId,
 				})
@@ -260,10 +259,12 @@ export const transactionsRouter = createTRPCRouter({
 		}),
 
 	getSplitsByTransactionId: protectedProcedure
-		.input(z.object({ 
-			transactionId: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				transactionId: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.query(async ({ ctx, input }) => {
 			// Verify transaction belongs to user's workspace
 			const transaction = await ctx.db
@@ -308,10 +309,12 @@ export const transactionsRouter = createTRPCRouter({
 		}),
 
 	deleteSplit: protectedProcedure
-		.input(z.object({ 
-			splitId: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				splitId: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			// Verify split belongs to user's workspace
 			const split = await ctx.db
@@ -335,10 +338,12 @@ export const transactionsRouter = createTRPCRouter({
 		}),
 
 	deleteAllSplits: protectedProcedure
-		.input(z.object({ 
-			transactionId: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				transactionId: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			// Verify transaction belongs to user's workspace
 			const transaction = await ctx.db
@@ -368,10 +373,12 @@ export const transactionsRouter = createTRPCRouter({
 
 	// New endpoint to calculate owed balance for an account (including manual splits)
 	getOwedBalanceByAccountId: protectedProcedure
-		.input(z.object({ 
-			accountId: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				accountId: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.query(async ({ ctx, input }) => {
 			// Verify account belongs to user's workspace
 			const account = await ctx.db
@@ -479,10 +486,12 @@ export const transactionsRouter = createTRPCRouter({
 
 	// Get all transaction splits involving an account (including manual splits)
 	getSplitsByAccountId: protectedProcedure
-		.input(z.object({ 
-			accountId: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				accountId: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.query(async ({ ctx, input }) => {
 			// Verify account belongs to user's workspace
 			const account = await ctx.db
@@ -603,7 +612,13 @@ export const transactionsRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const { workspaceId, sourceAccountId, targetAccountId, amount, description } = input;
+			const {
+				workspaceId,
+				sourceAccountId,
+				targetAccountId,
+				amount,
+				description,
+			} = input;
 
 			// Validate that accounts exist and belong to the workspace
 			const [sourceAccount, targetAccount] = await Promise.all([
@@ -652,5 +667,131 @@ export const transactionsRouter = createTRPCRouter({
 				.returning();
 
 			return result[0];
+		}),
+
+	// Delete transaction
+	delete: protectedProcedure
+		.input(
+			z.object({
+				id: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			// Verify transaction belongs to user's workspace
+			const transaction = await ctx.db
+				.select()
+				.from(transactions)
+				.where(
+					and(
+						eq(transactions.id, input.id),
+						eq(transactions.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (transaction.length === 0) {
+				throw new Error("Transaction not found or access denied");
+			}
+
+			// Delete all splits for this transaction first
+			await ctx.db
+				.delete(transactionSplits)
+				.where(eq(transactionSplits.sourceTransactionId, input.id));
+
+			// Delete the transaction
+			return ctx.db.delete(transactions).where(eq(transactions.id, input.id));
+		}),
+
+	// Get debt matrix showing how much each account owes each other account
+	getDebtMatrix: protectedProcedure
+		.input(
+			z.object({
+				workspaceId: z.string(),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			// Get all accounts in the workspace
+			const accounts = await ctx.db
+				.select({
+					id: currentAccounts.id,
+					name: currentAccounts.name,
+					accountType: currentAccounts.accountType,
+				})
+				.from(currentAccounts)
+				.where(eq(currentAccounts.workspaceId, input.workspaceId))
+				.orderBy(currentAccounts.name);
+
+			// Get all transaction splits in the workspace
+			const splits = await ctx.db
+				.select({
+					sourceTransactionId: transactionSplits.sourceTransactionId,
+					sourceAccountId: transactionSplits.sourceAccountId,
+					currentAccountId: transactionSplits.currentAccountId,
+					amountInPounds: transactionSplits.amountInPounds,
+					sourceTransactionAccountId: transactions.currentAccountId,
+				})
+				.from(transactionSplits)
+				.leftJoin(
+					transactions,
+					eq(transactionSplits.sourceTransactionId, transactions.id),
+				)
+				.where(eq(transactionSplits.workspaceId, input.workspaceId));
+
+			// Create a map to track net debts between accounts
+			const debtMap = new Map<string, Map<string, number>>();
+
+			// Initialize the debt map
+			for (const account of accounts) {
+				debtMap.set(account.id, new Map());
+				for (const otherAccount of accounts) {
+					if (account.id !== otherAccount.id) {
+						const accountMap = debtMap.get(account.id);
+						if (accountMap) {
+							accountMap.set(otherAccount.id, 0);
+						}
+					}
+				}
+			}
+
+			// Process splits to calculate debts
+			for (const split of splits) {
+				// Determine the source account ID
+				const sourceAccountId = split.sourceAccountId ?? split.sourceTransactionAccountId;
+				const targetAccountId = split.currentAccountId;
+
+				if (sourceAccountId && targetAccountId && sourceAccountId !== targetAccountId) {
+					// This represents money that the source account owes to the target account
+					const sourceMap = debtMap.get(sourceAccountId);
+					if (sourceMap) {
+						const currentDebt = sourceMap.get(targetAccountId) ?? 0;
+						sourceMap.set(targetAccountId, currentDebt + split.amountInPounds);
+					}
+
+					// Also update the reverse relationship (target account is owed by source account)
+					// This means we subtract the same amount from what target owes to source
+					const targetMap = debtMap.get(targetAccountId);
+					if (targetMap) {
+						const currentReverseDebt = targetMap.get(sourceAccountId) ?? 0;
+						targetMap.set(sourceAccountId, currentReverseDebt - split.amountInPounds);
+					}
+				}
+			}
+
+			// Convert to the matrix format expected by the frontend
+			const matrix = accounts.map((rowAccount) => ({
+				account: rowAccount,
+				debts: accounts
+					.filter((colAccount) => colAccount.id !== rowAccount.id)
+					.map((colAccount) => ({
+						toAccount: colAccount,
+						amount: debtMap.get(rowAccount.id)?.get(colAccount.id) ?? 0,
+					})),
+			}));
+
+			return {
+				accounts,
+				matrix,
+			};
 		}),
 });

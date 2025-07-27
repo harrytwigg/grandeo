@@ -39,8 +39,7 @@ export default $config({
 
 		console.log("Sudo stack is website, deploying website...");
 
-    // Verify env setup
-    await import("grandeo/env");
+		const bucket = new aws.s3.Bucket(`grandeo-data-${coreEnv.BRANCH}`);
 
 		new sst.aws.Nextjs("Website", {
 			warm: 5,
@@ -49,10 +48,31 @@ export default $config({
 				redirects: [`www.${coreEnv.DOMAIN_NAME}`],
 				dns: sst.cloudflare.dns(),
 			},
+			server: {
+				timeout: "120 seconds",
+			},
+			// Env var validation handled in the build process
 			environment: {
 				DOMAIN_NAME: coreEnv.DOMAIN_NAME,
+				DATA_BUCKET_NAME: bucket.bucket,
+				CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY ?? "",
+				DATABASE_URL: process.env.DATABASE_URL ?? "",
+				DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN ?? "",
 			},
-			
+			permissions: [
+				// allow bedrock access
+				{
+					effect: "allow",
+					actions: ["bedrock:*"],
+					resources: ["*"],
+				},
+				// read write to the bucket
+				{
+					effect: "allow",
+					actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+					resources: [bucket.arn, bucket.arn.apply((arn) => `${arn}/*`)],
+				},
+			],
 		});
 	},
 });

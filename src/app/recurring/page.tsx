@@ -130,26 +130,29 @@ export default function RecurringExpensesPage() {
 			formData.frequency
 		) {
 			if (workspaceApi.workspaceId) {
-				createExpense.mutate({
-					name: formData.name,
-					amountInPounds: Number.parseFloat(formData.amountInPounds),
-					expenseCategoryId: formData.expenseCategoryId,
-					currentAccountId: formData.currentAccountId,
-					startDate: new Date(formData.startDate),
-					endDate: formData.endDate ? new Date(formData.endDate) : undefined,
-					frequency: formData.frequency as
-						| "daily"
-						| "weekly"
-						| "monthly"
-						| "annually",
-					workspaceId: workspaceApi.workspaceId,
-				}, {
-					onSuccess: () => {
-						refetch();
-						setIsCreateDialogOpen(false);
-						resetForm();
+				createExpense.mutate(
+					{
+						name: formData.name,
+						amountInPounds: Number.parseFloat(formData.amountInPounds),
+						expenseCategoryId: formData.expenseCategoryId,
+						currentAccountId: formData.currentAccountId,
+						startDate: new Date(formData.startDate),
+						endDate: formData.endDate ? new Date(formData.endDate) : undefined,
+						frequency: formData.frequency as
+							| "daily"
+							| "weekly"
+							| "monthly"
+							| "annually",
+						workspaceId: workspaceApi.workspaceId,
 					},
-				});
+					{
+						onSuccess: () => {
+							refetch();
+							setIsCreateDialogOpen(false);
+							resetForm();
+						},
+					},
+				);
 			}
 		}
 	};
@@ -183,42 +186,48 @@ export default function RecurringExpensesPage() {
 			formData.frequency
 		) {
 			if (workspaceApi.workspaceId) {
-				updateExpense.mutate({
-					id: editingExpense.id,
-					name: formData.name,
-					amountInPounds: Number.parseFloat(formData.amountInPounds),
-					expenseCategoryId: formData.expenseCategoryId,
-					currentAccountId: formData.currentAccountId,
-					startDate: new Date(formData.startDate),
-					endDate: formData.endDate ? new Date(formData.endDate) : undefined,
-					frequency: formData.frequency as
-						| "daily"
-						| "weekly"
-						| "monthly"
-						| "annually",
-					workspaceId: workspaceApi.workspaceId,
-				}, {
-					onSuccess: () => {
-						refetch();
-						setIsEditDialogOpen(false);
-						setEditingExpense(null);
-						resetForm();
+				updateExpense.mutate(
+					{
+						id: editingExpense.id,
+						name: formData.name,
+						amountInPounds: Number.parseFloat(formData.amountInPounds),
+						expenseCategoryId: formData.expenseCategoryId,
+						currentAccountId: formData.currentAccountId,
+						startDate: new Date(formData.startDate),
+						endDate: formData.endDate ? new Date(formData.endDate) : undefined,
+						frequency: formData.frequency as
+							| "daily"
+							| "weekly"
+							| "monthly"
+							| "annually",
+						workspaceId: workspaceApi.workspaceId,
 					},
-				});
+					{
+						onSuccess: () => {
+							refetch();
+							setIsEditDialogOpen(false);
+							setEditingExpense(null);
+							resetForm();
+						},
+					},
+				);
 			}
 		}
 	};
 
 	const handleDeleteExpense = (id: string) => {
 		if (workspaceApi.workspaceId) {
-			deleteExpense.mutate({ 
-				id,
-				workspaceId: workspaceApi.workspaceId,
-			}, {
-				onSuccess: () => {
-					refetch();
+			deleteExpense.mutate(
+				{
+					id,
+					workspaceId: workspaceApi.workspaceId,
 				},
-			});
+				{
+					onSuccess: () => {
+						refetch();
+					},
+				},
+			);
 		}
 	};
 

@@ -7,8 +7,20 @@ import {
 	SelectValue,
 } from "grandeo/components/ui/select";
 import { TableCell, TableRow } from "grandeo/components/ui/table";
+import { Button } from "grandeo/components/ui/button";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "grandeo/components/ui/alert-dialog";
 import { useWorkspaceApi } from "grandeo/components/workspace-provider";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, Trash2 } from "lucide-react";
 import { TransactionSplitDialog } from "./transaction-split-dialog";
 
 interface Transaction {
@@ -29,6 +41,7 @@ interface TransactionRowProps {
 	onCategoryChange?: (transactionId: string, categoryId: string | null) => void;
 	onHandledChange?: (transactionId: string, handled: boolean) => void;
 	onSplitsChange?: () => void;
+	onDelete?: (transactionId: string) => void;
 }
 
 export function TransactionRow({
@@ -36,20 +49,27 @@ export function TransactionRow({
 	onCategoryChange,
 	onHandledChange,
 	onSplitsChange,
+	onDelete,
 }: TransactionRowProps) {
 	const workspaceApi = useWorkspaceApi();
-	
+
 	// Get all expense categories for the dropdown
 	const { data: expenseCategories } = workspaceApi.expenseCategories.getAll();
 
 	// Get splits for this transaction to show indicator
-	const { data: splits } = workspaceApi.transactions.getSplitsByTransactionId(transaction.id);
+	const { data: splits } = workspaceApi.transactions.getSplitsByTransactionId(
+		transaction.id,
+	);
 
 	// Mutation for updating expense category
-	const updateExpenseCategory = workspaceApi.transactions.updateExpenseCategory();
+	const updateExpenseCategory =
+		workspaceApi.transactions.updateExpenseCategory();
 
 	// Mutation for updating handled status
 	const updateHandled = workspaceApi.transactions.updateHandled();
+
+	// Mutation for deleting transaction
+	const deleteTransaction = workspaceApi.transactions.delete();
 
 	const handleCategoryChange = (categoryId: string) => {
 		const newCategoryId = categoryId === "uncategorized" ? null : categoryId;
@@ -66,7 +86,7 @@ export function TransactionRow({
 						onCategoryChange(transaction.id, newCategoryId);
 					}
 				},
-			}
+			},
 		);
 	};
 
@@ -84,7 +104,24 @@ export function TransactionRow({
 						onHandledChange(transaction.id, checked);
 					}
 				},
-			}
+			},
+		);
+	};
+
+	const handleDeleteTransaction = () => {
+		deleteTransaction.mutate(
+			{
+				id: transaction.id,
+				workspaceId: workspaceApi.workspaceId ?? "",
+			},
+			{
+				onSuccess: () => {
+					// Call the callback to refresh the transactions list
+					if (onDelete) {
+						onDelete(transaction.id);
+					}
+				},
+			},
 		);
 	};
 
@@ -173,10 +210,46 @@ export function TransactionRow({
 				</div>
 			</TableCell>
 			<TableCell>
-				<TransactionSplitDialog
-					transaction={transaction}
-					onSplitsCreated={onSplitsChange}
-				/>
+				<div className="flex items-center gap-2">
+					<TransactionSplitDialog
+						transaction={transaction}
+						onSplitsCreated={onSplitsChange}
+					/>
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+								disabled={deleteTransaction.isPending}
+							>
+								{deleteTransaction.isPending ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : (
+									<Trash2 className="h-4 w-4" />
+								)}
+							</Button>
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+								<AlertDialogDescription>
+									Are you sure you want to delete this transaction? This action
+									cannot be undone and will also delete any associated splits.
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Cancel</AlertDialogCancel>
+								<AlertDialogAction
+									onClick={handleDeleteTransaction}
+									className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+								>
+									Delete
+								</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
+				</div>
 			</TableCell>
 		</TableRow>
 	);

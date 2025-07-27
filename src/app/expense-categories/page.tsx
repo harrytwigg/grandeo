@@ -73,9 +73,9 @@ export default function CategoriesPage() {
 
 	const handleCreateCategory = () => {
 		if (newCategoryName.trim() && workspaceApi.workspaceId) {
-			createCategory.mutate({ 
+			createCategory.mutate({
 				name: newCategoryName.trim(),
-				workspaceId: workspaceApi.workspaceId
+				workspaceId: workspaceApi.workspaceId,
 			});
 		}
 	};
@@ -97,7 +97,7 @@ export default function CategoriesPage() {
 
 	const handleDeleteCategory = (id: string) => {
 		if (workspaceApi.workspaceId) {
-			deleteCategory.mutate({ 
+			deleteCategory.mutate({
 				id,
 				workspaceId: workspaceApi.workspaceId,
 			});
@@ -261,7 +261,7 @@ export default function CategoriesPage() {
 												</div>
 											</TableCell>
 											<TableCell className="text-muted-foreground">
-												{category.createdAt 
+												{category.createdAt
 													? new Date(category.createdAt).toLocaleDateString()
 													: "N/A"}
 											</TableCell>

@@ -13,10 +13,6 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 // Initialize Bedrock client
 const bedrockClient = new BedrockRuntimeClient({
 	region: env.AWS_REGION,
-	credentials: {
-		accessKeyId: env.AWS_ACCESS_KEY_ID,
-		secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-	},
 });
 
 // Claude 3.5 Sonnet model ID (supports document and image processing via Converse API)
