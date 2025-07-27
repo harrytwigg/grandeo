@@ -26,7 +26,7 @@ import {
 	SelectValue,
 } from "grandeo/components/ui/select";
 import { Textarea } from "grandeo/components/ui/textarea";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -64,9 +64,10 @@ export function ManualSplitDialog({
 		},
 	});
 
+	const workspaceApi = useWorkspaceApi();
+
 	// Get all accounts for the dropdown
-	const { data: accounts } = api.currentAccounts.getAll.useQuery();
-	const utils = api.useUtils();
+	const { data: accounts } = workspaceApi.currentAccounts.getAll();
 
 	// Watch form values to show dynamic message
 	const sourceAccountId = form.watch("sourceAccountId");
@@ -82,19 +83,7 @@ export function ManualSplitDialog({
 	);
 
 	// Create manual split mutation
-	const createManualSplit = api.transactions.createManualSplit.useMutation({
-		onSuccess: () => {
-			toast.success("Manual split created successfully");
-			form.reset();
-			onOpenChange(false);
-			// Invalidate the splits query to refresh the table
-			utils.transactions.getSplitsByAccountId.invalidate();
-			utils.transactions.getOwedBalanceByAccountId.invalidate();
-		},
-		onError: (error) => {
-			toast.error(error.message || "Failed to create manual split");
-		},
-	});
+	const createManualSplit = workspaceApi.transactions.createManualSplit();
 
 	const onSubmit = async (data: ManualSplitForm) => {
 		if (data.sourceAccountId === data.targetAccountId) {
@@ -104,7 +93,16 @@ export function ManualSplitDialog({
 
 		setIsLoading(true);
 		try {
-			await createManualSplit.mutateAsync(data);
+			await createManualSplit.mutateAsync({
+				...data,
+				workspaceId: workspaceApi.workspaceId ?? "",
+			});
+			toast.success("Manual split created successfully");
+			form.reset();
+			onOpenChange(false);
+			// Note: For full refresh, we'd need to pass refetch callbacks from parent components
+		} catch (error) {
+			toast.error((error as Error).message || "Failed to create manual split");
 		} finally {
 			setIsLoading(false);
 		}

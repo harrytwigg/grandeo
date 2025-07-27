@@ -13,7 +13,7 @@ import {
 	ChartTooltipContent,
 	type ChartConfig,
 } from "grandeo/components/ui/chart";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import { TrendingDownIcon, TrendingUpIcon, RefreshCwIcon } from "lucide-react";
 import { useState } from "react";
 import { Line, LineChart, XAxis, YAxis } from "recharts";
@@ -34,6 +34,7 @@ export function AccountBalanceChart({
 	accountId,
 	accountName,
 }: AccountBalanceChartProps) {
+	const workspaceApi = useWorkspaceApi();
 	const [timeRange, setTimeRange] = useState<7 | 30 | 90 | 360>(30);
 
 	const {
@@ -41,20 +42,9 @@ export function AccountBalanceChart({
 		isLoading,
 		error,
 		refetch,
-	} = api.currentAccounts.getBalanceHistory.useQuery({
-		id: accountId,
-		days: timeRange,
-	});
+	} = workspaceApi.currentAccounts.getBalanceHistory(accountId, timeRange);
 
-	const recomputeBalances = api.currentAccounts.recomputeBalances.useMutation({
-		onSuccess: () => {
-			toast.success("Balances recomputed successfully");
-			void refetch();
-		},
-		onError: (error) => {
-			toast.error(`Failed to recompute balances: ${error.message}`);
-		},
-	});
+	const recomputeBalances = workspaceApi.currentAccounts.recomputeBalances();
 
 	if (isLoading) {
 		return (
@@ -113,7 +103,21 @@ export function AccountBalanceChart({
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => recomputeBalances.mutate({ id: accountId })}
+							onClick={() => recomputeBalances.mutate(
+								{ 
+									id: accountId,
+									workspaceId: workspaceApi.workspaceId ?? ""
+								},
+								{
+									onSuccess: () => {
+										toast.success("Balances recomputed successfully");
+										refetch();
+									},
+									onError: (error) => {
+										toast.error(`Failed to recompute balances: ${error.message}`);
+									},
+								}
+							)}
 							disabled={recomputeBalances.isPending}
 						>
 							<RefreshCwIcon
@@ -170,7 +174,21 @@ export function AccountBalanceChart({
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={() => recomputeBalances.mutate({ id: accountId })}
+						onClick={() => recomputeBalances.mutate(
+							{ 
+								id: accountId,
+								workspaceId: workspaceApi.workspaceId ?? ""
+							},
+							{
+								onSuccess: () => {
+									toast.success("Balances recomputed successfully");
+									refetch();
+								},
+								onError: (error) => {
+									toast.error(`Failed to recompute balances: ${error.message}`);
+								},
+							}
+						)}
 						disabled={recomputeBalances.isPending}
 					>
 						<RefreshCwIcon

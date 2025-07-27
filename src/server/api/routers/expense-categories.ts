@@ -1,11 +1,7 @@
 import { z } from "zod";
 
 import { eq, and } from "drizzle-orm";
-import {
-	createTRPCRouter,
-	protectedProcedure,
-	publicProcedure,
-} from "grandeo/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
 import { expenseCategories } from "grandeo/server/db/schema";
 
 export const expenseCategoriesRouter = createTRPCRouter({

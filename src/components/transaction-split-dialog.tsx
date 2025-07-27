@@ -17,7 +17,7 @@ import {
 	SelectValue,
 } from "grandeo/components/ui/select";
 import { Textarea } from "grandeo/components/ui/textarea";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import { Plus, Split, Trash2 } from "lucide-react";
 import React, { useState } from "react";
 
@@ -51,30 +51,21 @@ export function TransactionSplitDialog({
 		},
 	]);
 
+	const workspaceApi = useWorkspaceApi();
+
 	// Get all current accounts for the dropdown
-	const { data: currentAccounts } = api.currentAccounts.getAll.useQuery();
+	const { data: currentAccounts } = workspaceApi.currentAccounts.getAll();
 
 	// Get existing splits for this transaction
-	const { data: existingSplits, refetch: refetchSplits } =
-		api.transactions.getSplitsByTransactionId.useQuery({
-			transactionId: transaction.id,
-		});
+	const { 
+		data: existingSplits, 
+		refetch: refetchSplits 
+	} = workspaceApi.transactions.getSplitsByTransactionId(transaction.id);
 
 	// Mutations
-	const createSplits = api.transactions.createSplits.useMutation({
-		onSuccess: () => {
-			setOpen(false);
-			refetchSplits();
-			onSplitsCreated?.();
-		},
-	});
+	const createSplits = workspaceApi.transactions.createSplits();
 
-	const deleteAllSplits = api.transactions.deleteAllSplits.useMutation({
-		onSuccess: () => {
-			refetchSplits();
-			onSplitsCreated?.();
-		},
-	});
+	const deleteAllSplits = workspaceApi.transactions.deleteAllSplits();
 
 	const addSplit = () => {
 		setSplits([
@@ -187,18 +178,39 @@ export function TransactionSplitDialog({
 	const handleCreateSplits = () => {
 		if (!isValidSplit()) return;
 
-		createSplits.mutate({
-			sourceTransactionId: transaction.id,
-			splits: splits.map((split) => ({
-				currentAccountId: split.currentAccountId,
-				amountInPounds: split.amountInPounds,
-				description: split.description || null,
-			})),
-		});
+		createSplits.mutate(
+			{
+				sourceTransactionId: transaction.id,
+				workspaceId: workspaceApi.workspaceId ?? "",
+				splits: splits.map((split) => ({
+					currentAccountId: split.currentAccountId,
+					amountInPounds: split.amountInPounds,
+					description: split.description || null,
+				})),
+			},
+			{
+				onSuccess: () => {
+					setOpen(false);
+					refetchSplits();
+					onSplitsCreated?.();
+				},
+			}
+		);
 	};
 
 	const handleDeleteAllSplits = () => {
-		deleteAllSplits.mutate({ transactionId: transaction.id });
+		deleteAllSplits.mutate(
+			{ 
+				transactionId: transaction.id,
+				workspaceId: workspaceApi.workspaceId ?? ""
+			},
+			{
+				onSuccess: () => {
+					refetchSplits();
+					onSplitsCreated?.();
+				},
+			}
+		);
 	};
 
 	const formatCurrency = (amount: number) => {

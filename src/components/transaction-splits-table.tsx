@@ -19,7 +19,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "grandeo/components/ui/table";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
@@ -34,26 +34,30 @@ interface TransactionSplitsTableProps {
 export function TransactionSplitsTable({
 	accountId,
 }: TransactionSplitsTableProps) {
-	const { data: splits, isLoading } =
-		api.transactions.getSplitsByAccountId.useQuery({
-			accountId,
-		});
+	const workspaceApi = useWorkspaceApi();
+	
+	const { 
+		data: splits, 
+		isLoading,
+		refetch: refetchSplits
+	} = workspaceApi.transactions.getSplitsByAccountId(accountId);
 
-	const utils = api.useUtils();
-
-	const deleteSplitMutation = api.transactions.deleteSplit.useMutation({
-		onSuccess: () => {
-			// Refetch the splits data after successful deletion
-			void utils.transactions.getSplitsByAccountId.invalidate({
-				accountId,
-			});
-			// Also invalidate the owed balance for all accounts as balances may have changed
-			void utils.transactions.getOwedBalanceByAccountId.invalidate();
-		},
-	});
+	const deleteSplitMutation = workspaceApi.transactions.deleteSplit();
 
 	const handleDeleteSplit = (splitId: string) => {
-		deleteSplitMutation.mutate({ splitId });
+		deleteSplitMutation.mutate(
+			{ 
+				splitId, 
+				workspaceId: workspaceApi.workspaceId ?? "" 
+			},
+			{
+				onSuccess: () => {
+					// Refetch the splits data after successful deletion
+					refetchSplits();
+					// Note: For more complex invalidation, we'd need to pass refetch callbacks from parent
+				},
+			}
+		);
 	};
 
 	const formatCurrency = (amount: number) => {

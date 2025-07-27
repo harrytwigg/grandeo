@@ -1,31 +1,44 @@
 import { z } from "zod";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
 	createTRPCRouter,
 	protectedProcedure,
-	publicProcedure,
 } from "grandeo/server/api/trpc";
 import { currentAccounts } from "grandeo/server/db/schema";
 
 export const currentAccountsRouter = createTRPCRouter({
-	getAll: publicProcedure.query(({ ctx }) => {
-		return ctx.db.select().from(currentAccounts);
-	}),
-
-	getById: publicProcedure
-		.input(z.object({ id: z.string() }))
+	getAll: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
 		.query(({ ctx, input }) => {
 			return ctx.db
 				.select()
 				.from(currentAccounts)
-				.where(eq(currentAccounts.id, input.id))
+				.where(eq(currentAccounts.workspaceId, input.workspaceId));
+		}),
+
+	getById: protectedProcedure
+		.input(z.object({ 
+			id: z.string(),
+			workspaceId: z.string(),
+		}))
+		.query(({ ctx, input }) => {
+			return ctx.db
+				.select()
+				.from(currentAccounts)
+				.where(
+					and(
+						eq(currentAccounts.id, input.id),
+						eq(currentAccounts.workspaceId, input.workspaceId),
+					),
+				)
 				.limit(1);
 		}),
 
-	create: publicProcedure
+	create: protectedProcedure
 		.input(
 			z.object({
+				workspaceId: z.string(),
 				name: z.string().min(1, "Name is required").trim().toLowerCase(),
 				accountType: z
 					.enum(["current_account", "credit_card"])
@@ -34,20 +47,38 @@ export const currentAccountsRouter = createTRPCRouter({
 		)
 		.mutation(({ ctx, input }) => {
 			return ctx.db.insert(currentAccounts).values({
+				workspaceId: input.workspaceId,
 				name: input.name,
 				accountType: input.accountType,
 			});
 		}),
 
-	update: publicProcedure
+	update: protectedProcedure
 		.input(
 			z.object({
 				id: z.string(),
+				workspaceId: z.string(),
 				name: z.string().min(1, "Name is required"),
 				accountType: z.enum(["current_account", "credit_card"]).optional(),
 			}),
 		)
-		.mutation(({ ctx, input }) => {
+		.mutation(async ({ ctx, input }) => {
+			// Verify account belongs to user's workspace
+			const account = await ctx.db
+				.select()
+				.from(currentAccounts)
+				.where(
+					and(
+						eq(currentAccounts.id, input.id),
+						eq(currentAccounts.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (account.length === 0) {
+				throw new Error("Account not found or access denied");
+			}
+
 			const updateData: {
 				name: string;
 				updatedAt: Date;
@@ -67,9 +98,28 @@ export const currentAccountsRouter = createTRPCRouter({
 				.where(eq(currentAccounts.id, input.id));
 		}),
 
-	delete: publicProcedure
-		.input(z.object({ id: z.string() }))
-		.mutation(({ ctx, input }) => {
+	delete: protectedProcedure
+		.input(z.object({ 
+			id: z.string(),
+			workspaceId: z.string(),
+		}))
+		.mutation(async ({ ctx, input }) => {
+			// Verify account belongs to user's workspace
+			const account = await ctx.db
+				.select()
+				.from(currentAccounts)
+				.where(
+					and(
+						eq(currentAccounts.id, input.id),
+						eq(currentAccounts.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (account.length === 0) {
+				throw new Error("Account not found or access denied");
+			}
+
 			return ctx.db
 				.delete(currentAccounts)
 				.where(eq(currentAccounts.id, input.id));

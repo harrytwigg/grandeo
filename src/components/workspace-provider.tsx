@@ -104,9 +104,14 @@ export function useWorkspaceApi() {
 				{ id, workspaceId: currentWorkspaceId ?? "" },
 				{ enabled: !!currentWorkspaceId && !!id }
 			),
+			getBalanceHistory: (id: string, days = 30) => api.currentAccounts.getBalanceHistory.useQuery(
+				{ id, workspaceId: currentWorkspaceId ?? "", days },
+				{ enabled: !!currentWorkspaceId && !!id }
+			),
 			create: () => api.currentAccounts.create.useMutation(),
 			update: () => api.currentAccounts.update.useMutation(),
 			delete: () => api.currentAccounts.delete.useMutation(),
+			recomputeBalances: () => api.currentAccounts.recomputeBalances.useMutation(),
 		},
 		// Recurring Expenses
 		recurringExpenses: {
@@ -129,9 +134,48 @@ export function useWorkspaceApi() {
 					},
 					{ enabled: !!currentWorkspaceId && !!accountId }
 				),
+			getById: (id: string) => api.transactions.getById.useQuery(
+				{ id, workspaceId: currentWorkspaceId ?? "" },
+				{ enabled: !!currentWorkspaceId && !!id }
+			),
+			getSplitsByTransactionId: (transactionId: string) => 
+				api.transactions.getSplitsByTransactionId.useQuery(
+					{ 
+						transactionId, 
+						workspaceId: currentWorkspaceId ?? ""
+					},
+					{ enabled: !!currentWorkspaceId && !!transactionId }
+				),
+			getSplitsByAccountId: (accountId: string) => 
+				api.transactions.getSplitsByAccountId.useQuery(
+					{ 
+						accountId, 
+						workspaceId: currentWorkspaceId ?? ""
+					},
+					{ enabled: !!currentWorkspaceId && !!accountId }
+				),
 			updateExpenseCategory: () => api.transactions.updateExpenseCategory.useMutation(),
 			updateHandled: () => api.transactions.updateHandled.useMutation(),
 			createSplits: () => api.transactions.createSplits.useMutation(),
+			createManualSplit: () => api.transactions.createManualSplit.useMutation(),
+			deleteSplit: () => api.transactions.deleteSplit.useMutation(),
+			deleteAllSplits: () => api.transactions.deleteAllSplits.useMutation(),
+			getOwedBalanceByAccountId: (accountId: string) => api.transactions.getOwedBalanceByAccountId.useQuery(
+				{ accountId, workspaceId: currentWorkspaceId ?? "" },
+				{ enabled: !!currentWorkspaceId && !!accountId }
+			),
+		},
+		// Statements
+		statements: {
+			getByAccountId: (accountId: string) => api.statements.getByAccountId.useQuery(
+				{ accountId, workspaceId: currentWorkspaceId ?? "" },
+				{ enabled: !!currentWorkspaceId && !!accountId }
+			),
+			create: () => api.statements.create.useMutation(),
+			update: () => api.statements.update.useMutation(),
+			delete: () => api.statements.delete.useMutation(),
+			download: () => api.statements.download.useMutation(),
+			parseStatement: () => api.statements.parseStatement.useMutation(),
 		},
 		// Current workspace ID for manual usage
 		workspaceId: currentWorkspaceId,

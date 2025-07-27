@@ -1,11 +1,7 @@
 import type { Client } from "@libsql/client";
 import { and, count, desc, eq, gte, lte, ne } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
-import {
-	createTRPCRouter,
-	protectedProcedure,
-	publicProcedure,
-} from "grandeo/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
 import { processFileWithSchema } from "grandeo/server/bedrock";
 import { statements, transactions } from "grandeo/server/db/schema";
 import {
@@ -112,10 +108,12 @@ const statementSchema = z.object({
 
 export const statementsRouter = createTRPCRouter({
 	getByAccountId: protectedProcedure
-		.input(z.object({ 
-			accountId: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				accountId: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.query(async ({ ctx, input }) => {
 			// Get statements with transaction count
 			const statementsWithCount = await ctx.db
@@ -150,10 +148,12 @@ export const statementsRouter = createTRPCRouter({
 		}),
 
 	getById: protectedProcedure
-		.input(z.object({ 
-			id: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				id: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.query(async ({ ctx, input }) => {
 			const result = await ctx.db
 				.select()
@@ -241,10 +241,7 @@ export const statementsRouter = createTRPCRouter({
 				.select()
 				.from(statements)
 				.where(
-					and(
-						eq(statements.id, id),
-						eq(statements.workspaceId, workspaceId),
-					),
+					and(eq(statements.id, id), eq(statements.workspaceId, workspaceId)),
 				)
 				.limit(1);
 
@@ -261,10 +258,12 @@ export const statementsRouter = createTRPCRouter({
 		}),
 
 	delete: protectedProcedure
-		.input(z.object({ 
-			id: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				id: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			// First, fetch the statement to get the S3 path and verify workspace access
 			const statement = await ctx.db
@@ -290,10 +289,12 @@ export const statementsRouter = createTRPCRouter({
 		}),
 
 	download: protectedProcedure
-		.input(z.object({ 
-			id: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				id: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			// Get the statement record and verify workspace access
 			const statement = await ctx.db
@@ -326,10 +327,12 @@ export const statementsRouter = createTRPCRouter({
 		}),
 
 	parseStatement: protectedProcedure
-		.input(z.object({ 
-			id: z.string(),
-			workspaceId: z.string(),
-		}))
+		.input(
+			z.object({
+				id: z.string(),
+				workspaceId: z.string(),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			// Verify statement belongs to user's workspace
 			const statement = await ctx.db

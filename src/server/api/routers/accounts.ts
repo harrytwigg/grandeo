@@ -1,11 +1,7 @@
 import { z } from "zod";
 
 import { and, asc, desc, eq, isNotNull, lte, gte } from "drizzle-orm";
-import {
-	createTRPCRouter,
-	protectedProcedure,
-	publicProcedure,
-} from "grandeo/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
 import {
 	currentAccounts,
 	statements,

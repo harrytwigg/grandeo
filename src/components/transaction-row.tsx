@@ -7,7 +7,7 @@ import {
 	SelectValue,
 } from "grandeo/components/ui/select";
 import { TableCell, TableRow } from "grandeo/components/ui/table";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { TransactionSplitDialog } from "./transaction-split-dialog";
 
@@ -37,48 +37,55 @@ export function TransactionRow({
 	onHandledChange,
 	onSplitsChange,
 }: TransactionRowProps) {
+	const workspaceApi = useWorkspaceApi();
+	
 	// Get all expense categories for the dropdown
-	const { data: expenseCategories } = api.expenseCategories.getAll.useQuery();
+	const { data: expenseCategories } = workspaceApi.expenseCategories.getAll();
 
 	// Get splits for this transaction to show indicator
-	const { data: splits } = api.transactions.getSplitsByTransactionId.useQuery({
-		transactionId: transaction.id,
-	});
+	const { data: splits } = workspaceApi.transactions.getSplitsByTransactionId(transaction.id);
 
 	// Mutation for updating expense category
-	const updateExpenseCategory =
-		api.transactions.updateExpenseCategory.useMutation({
-			onSuccess: (_, variables) => {
-				// Call the callback with the updated category ID
-				if (onCategoryChange) {
-					onCategoryChange(transaction.id, variables.expenseCategoryId);
-				}
-			},
-		});
+	const updateExpenseCategory = workspaceApi.transactions.updateExpenseCategory();
 
 	// Mutation for updating handled status
-	const updateHandled = api.transactions.updateHandled.useMutation({
-		onSuccess: (_, variables) => {
-			// Call the callback with the updated handled status
-			if (onHandledChange) {
-				onHandledChange(transaction.id, variables.handled);
-			}
-		},
-	});
+	const updateHandled = workspaceApi.transactions.updateHandled();
 
 	const handleCategoryChange = (categoryId: string) => {
 		const newCategoryId = categoryId === "uncategorized" ? null : categoryId;
-		updateExpenseCategory.mutate({
-			id: transaction.id,
-			expenseCategoryId: newCategoryId,
-		});
+		updateExpenseCategory.mutate(
+			{
+				id: transaction.id,
+				expenseCategoryId: newCategoryId,
+				workspaceId: workspaceApi.workspaceId ?? "",
+			},
+			{
+				onSuccess: () => {
+					// Call the callback with the updated category ID
+					if (onCategoryChange) {
+						onCategoryChange(transaction.id, newCategoryId);
+					}
+				},
+			}
+		);
 	};
 
 	const handleHandledChange = (checked: boolean) => {
-		updateHandled.mutate({
-			id: transaction.id,
-			handled: checked,
-		});
+		updateHandled.mutate(
+			{
+				id: transaction.id,
+				handled: checked,
+				workspaceId: workspaceApi.workspaceId ?? "",
+			},
+			{
+				onSuccess: () => {
+					// Call the callback with the new handled status
+					if (onHandledChange) {
+						onHandledChange(transaction.id, checked);
+					}
+				},
+			}
+		);
 	};
 
 	const formatCurrency = (amount: number) => {

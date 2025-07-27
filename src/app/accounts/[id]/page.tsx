@@ -32,7 +32,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "grandeo/components/ui/tabs";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import {
 	ArrowLeftIcon,
 	PlusIcon,
@@ -50,40 +50,33 @@ interface AccountDetailPageProps {
 
 export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 	const router = useRouter();
+	const workspaceApi = useWorkspaceApi();
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 	const [newStatementFile, setNewStatementFile] = useState<File | null>(null);
 	const [isManualSplitDialogOpen, setIsManualSplitDialogOpen] = useState(false);
 
-	// TRPC queries
+	// Workspace API queries
 	const {
 		data: account,
 		isLoading: isLoadingAccount,
 		refetch: refetchAccount,
-	} = api.currentAccounts.getById.useQuery({ id: params.id });
+	} = workspaceApi.currentAccounts.getById(params.id);
 
 	const {
 		data: statements,
 		isLoading: isLoadingStatements,
 		refetch: refetchStatements,
-	} = api.statements.getByAccountId.useQuery({ accountId: params.id });
+	} = workspaceApi.statements.getByAccountId(params.id);
 
 	// Get owed balance for this account (splits to other accounts)
 	const {
 		data: owedBalance,
 		isLoading: isLoadingOwedBalance,
 		refetch: refetchOwedBalance,
-	} = api.transactions.getOwedBalanceByAccountId.useQuery({
-		accountId: params.id,
-	});
+	} = workspaceApi.transactions.getOwedBalanceByAccountId(params.id);
 
 	// Mutations
-	const createStatement = api.statements.create.useMutation({
-		onSuccess: () => {
-			refetchStatements();
-			setIsUploadDialogOpen(false);
-			setNewStatementFile(null);
-		},
-	});
+	const createStatement = workspaceApi.statements.create();
 
 	const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
@@ -100,11 +93,21 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 					// Extract base64 string (remove data:mime;base64, prefix)
 					const base64String = reader.result.split(",")[1];
 					if (base64String) {
-						createStatement.mutate({
-							currentAccountId: params.id,
-							fileBase64: base64String,
-							fileName: newStatementFile.name,
-						});
+						createStatement.mutate(
+							{
+								workspaceId: workspaceApi.workspaceId ?? "",
+								currentAccountId: params.id,
+								fileBase64: base64String,
+								fileName: newStatementFile.name,
+							},
+							{
+								onSuccess: () => {
+									refetchStatements();
+									setIsUploadDialogOpen(false);
+									setNewStatementFile(null);
+								},
+							},
+						);
 					}
 				}
 			};

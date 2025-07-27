@@ -84,10 +84,10 @@ export const createPipeline = async () => {
 
 	const repoOutputName = "source-output";
 
-	const buildProjectName = `dahlia-digital-build-project-${coreEnv.BRANCH}`;
+	const buildProjectName = `grandeo-build-project-${coreEnv.BRANCH}`;
 
 	new aws.codepipeline.Pipeline("codepipeline", {
-		name: `dahlia-digital-website-pipeline-${coreEnv.BRANCH}`,
+		name: `grandeo-pipeline-${coreEnv.BRANCH}`,
 		roleArn: codePipelineRole.arn,
 		artifactStores: [
 			{
@@ -137,7 +137,7 @@ export const createPipeline = async () => {
 	});
 
 	const codeBuildSecret = await aws.ssm.getParameter({
-		name: `/dahlia-digital-website/${getStage()}/infra-env`,
+		name: `/grandeo/${getStage()}/infra-env`,
 		withDecryption: true,
 	});
 

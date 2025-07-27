@@ -92,7 +92,7 @@ export default function CurrentAccountsPage() {
 				name: newAccountName.trim(),
 				accountType: newAccountType,
 				workspaceId: workspaceApi.workspaceId,
-			}, {
+			} as any, {
 				onSuccess: () => {
 					refetch();
 					setIsCreateDialogOpen(false);
@@ -117,14 +117,15 @@ export default function CurrentAccountsPage() {
 	};
 
 	const handleUpdateAccount = () => {
-		if (editingAccount?.name.trim()) {
+		if (editingAccount?.name.trim() && workspaceApi.workspaceId) {
 			updateAccount.mutate({
 				id: editingAccount.id,
 				name: editingAccount.name.trim(),
 				accountType: editingAccount.accountType as
 					| "current_account"
 					| "credit_card",
-			}, {
+				workspaceId: workspaceApi.workspaceId,
+			} as any, {
 				onSuccess: () => {
 					refetch();
 					setIsEditDialogOpen(false);
@@ -135,11 +136,16 @@ export default function CurrentAccountsPage() {
 	};
 
 	const handleDeleteAccount = (id: string) => {
-		deleteAccount.mutate({ id }, {
-			onSuccess: () => {
-				refetch();
-			},
-		});
+		if (workspaceApi.workspaceId) {
+			deleteAccount.mutate({ 
+				id, 
+				workspaceId: workspaceApi.workspaceId 
+			} as any, {
+				onSuccess: () => {
+					refetch();
+				},
+			});
+		}
 	};
 
 	if (isLoading) {

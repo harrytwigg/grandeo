@@ -8,6 +8,21 @@ export const env = createEnv({
 	 */
 	server: {
 		DATABASE_URL: z.string().url(),
+		DATABASE_AUTH_TOKEN: z
+			.string()
+			.optional()
+			.refine(
+				(value) => {
+					if (process.env.NODE_ENV === "production" && !value) {
+						return false;
+					}
+					// in production, it can be optional
+					return true;
+				},
+				{
+					message: "DATABASE_AUTH_TOKEN is required in development",
+				},
+			),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
@@ -34,6 +49,7 @@ export const env = createEnv({
 	 */
 	runtimeEnv: {
 		DATABASE_URL: process.env.DATABASE_URL,
+		DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN,
 		NODE_ENV: process.env.NODE_ENV,
 		DATA_BUCKET_NAME: process.env.DATA_BUCKET_NAME,
 		AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,

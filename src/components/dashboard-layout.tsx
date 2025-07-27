@@ -147,7 +147,7 @@ export function DashboardLayout({
 							{/* Workspace Switcher */}
 							<SignedIn>
 								<div className="space-y-2">
-									<div className="font-medium text-xs text-muted-foreground">
+									<div className="font-medium text-muted-foreground text-xs">
 										WORKSPACE
 									</div>
 									<WorkspaceSwitcher />

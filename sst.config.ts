@@ -39,6 +39,9 @@ export default $config({
 
 		console.log("Sudo stack is website, deploying website...");
 
+    // Verify env setup
+    await import("grandeo/env");
+
 		new sst.aws.Nextjs("Website", {
 			warm: 5,
 			domain: {
@@ -49,6 +52,7 @@ export default $config({
 			environment: {
 				DOMAIN_NAME: coreEnv.DOMAIN_NAME,
 			},
+			
 		});
 	},
 });

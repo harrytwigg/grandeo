@@ -2,7 +2,6 @@ import { and, count, desc, eq, ne, or, sql } from "drizzle-orm";
 import {
 	createTRPCRouter,
 	protectedProcedure,
-	publicProcedure,
 } from "grandeo/server/api/trpc";
 import {
 	currentAccounts,
@@ -87,10 +86,13 @@ export const transactionsRouter = createTRPCRouter({
 			};
 		}),
 
-	getById: publicProcedure
-		.input(z.object({ id: z.string() }))
-		.query(({ ctx, input }) => {
-			return ctx.db
+	getById: protectedProcedure
+		.input(z.object({ 
+			id: z.string(),
+			workspaceId: z.string(),
+		}))
+		.query(async ({ ctx, input }) => {
+			const result = await ctx.db
 				.select({
 					id: transactions.id,
 					currentAccountId: transactions.currentAccountId,
@@ -101,6 +103,7 @@ export const transactionsRouter = createTRPCRouter({
 					handled: transactions.handled,
 					createdAt: transactions.createdAt,
 					updatedAt: transactions.updatedAt,
+					workspaceId: transactions.workspaceId,
 					expenseCategory: {
 						id: expenseCategories.id,
 						name: expenseCategories.name,
@@ -111,18 +114,46 @@ export const transactionsRouter = createTRPCRouter({
 					expenseCategories,
 					eq(transactions.expenseCategoryId, expenseCategories.id),
 				)
-				.where(eq(transactions.id, input.id))
+				.where(
+					and(
+						eq(transactions.id, input.id),
+						eq(transactions.workspaceId, input.workspaceId),
+					),
+				)
 				.limit(1);
+
+			if (result.length === 0) {
+				throw new Error("Transaction not found or access denied");
+			}
+
+			return result[0];
 		}),
 
-	updateExpenseCategory: publicProcedure
+	updateExpenseCategory: protectedProcedure
 		.input(
 			z.object({
 				id: z.string(),
 				expenseCategoryId: z.string().nullable(),
+				workspaceId: z.string(),
 			}),
 		)
-		.mutation(({ ctx, input }) => {
+		.mutation(async ({ ctx, input }) => {
+			// Verify transaction belongs to user's workspace
+			const transaction = await ctx.db
+				.select()
+				.from(transactions)
+				.where(
+					and(
+						eq(transactions.id, input.id),
+						eq(transactions.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (transaction.length === 0) {
+				throw new Error("Transaction not found or access denied");
+			}
+
 			return ctx.db
 				.update(transactions)
 				.set({
@@ -132,14 +163,31 @@ export const transactionsRouter = createTRPCRouter({
 				.where(eq(transactions.id, input.id));
 		}),
 
-	updateHandled: publicProcedure
+	updateHandled: protectedProcedure
 		.input(
 			z.object({
 				id: z.string(),
 				handled: z.boolean(),
+				workspaceId: z.string(),
 			}),
 		)
-		.mutation(({ ctx, input }) => {
+		.mutation(async ({ ctx, input }) => {
+			// Verify transaction belongs to user's workspace
+			const transaction = await ctx.db
+				.select()
+				.from(transactions)
+				.where(
+					and(
+						eq(transactions.id, input.id),
+						eq(transactions.workspaceId, input.workspaceId),
+					),
+				)
+				.limit(1);
+
+			if (transaction.length === 0) {
+				throw new Error("Transaction not found or access denied");
+			}
+
 			return ctx.db
 				.update(transactions)
 				.set({

@@ -21,7 +21,7 @@ import {
 	TableRow,
 } from "grandeo/components/ui/table";
 import { EditStatementDialog } from "grandeo/components/edit-statement-dialog";
-import { api } from "grandeo/trpc/react";
+import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import {
 	CalendarIcon,
 	DownloadIcon,
@@ -56,6 +56,7 @@ export function StatementsTable({
 	onRefreshStatements,
 	onRefreshTransactions,
 }: StatementsTableProps) {
+	const workspaceApi = useWorkspaceApi();
 	// State for edit dialog
 	const [editDialogOpen, setEditDialogOpen] = useState(false);
 	const [selectedStatement, setSelectedStatement] = useState<Statement | null>(
@@ -63,75 +64,84 @@ export function StatementsTable({
 	);
 
 	// Mutations
-	const deleteStatement = api.statements.delete.useMutation({
-		onSuccess: () => {
-			onRefreshStatements();
-		},
-	});
+	const deleteStatement = workspaceApi.statements.delete();
 
-	const updateStatement = api.statements.update.useMutation({
-		onSuccess: () => {
-			onRefreshStatements();
-			setEditDialogOpen(false);
-			setSelectedStatement(null);
-		},
-		onError: (error) => {
-			console.error("Update failed:", error);
-		},
-	});
+	const updateStatement = workspaceApi.statements.update();
 
-	const downloadStatement = api.statements.download.useMutation({
-		onSuccess: (result) => {
-			if (result) {
-				// Create blob from base64 data
-				const binaryString = atob(result.fileData);
-				const bytes = new Uint8Array(binaryString.length);
-				for (let i = 0; i < binaryString.length; i++) {
-					bytes[i] = binaryString.charCodeAt(i);
-				}
+	const downloadStatement = workspaceApi.statements.download();
 
-				const blob = new Blob([bytes], { type: result.contentType });
-
-				// Create download link
-				const url = window.URL.createObjectURL(blob);
-				const link = document.createElement("a");
-				link.href = url;
-				link.download = result.fileName;
-
-				// Trigger download
-				document.body.appendChild(link);
-				link.click();
-
-				// Cleanup
-				document.body.removeChild(link);
-				window.URL.revokeObjectURL(url);
-			}
-		},
-		onError: (error) => {
-			console.error("Download failed:", error);
-		},
-	});
-
-	const parseStatement = api.statements.parseStatement.useMutation({
-		onSuccess: () => {
-			onRefreshStatements();
-			onRefreshTransactions();
-		},
-		onError: (error) => {
-			console.error("Parse failed:", error);
-		},
-	});
+	const parseStatement = workspaceApi.statements.parseStatement();
 
 	const handleDownloadStatement = (statementId: string) => {
-		downloadStatement.mutate({ id: statementId });
+		downloadStatement.mutate(
+			{
+				id: statementId,
+				workspaceId: workspaceApi.workspaceId ?? "",
+			},
+			{
+				onSuccess: (result) => {
+					if (result) {
+						// Create blob from base64 data
+						const binaryString = atob(result.fileData);
+						const bytes = new Uint8Array(binaryString.length);
+						for (let i = 0; i < binaryString.length; i++) {
+							bytes[i] = binaryString.charCodeAt(i);
+						}
+
+						const blob = new Blob([bytes], { type: result.contentType });
+
+						// Create download link
+						const url = window.URL.createObjectURL(blob);
+						const link = document.createElement("a");
+						link.href = url;
+						link.download = result.fileName;
+
+						// Trigger download
+						document.body.appendChild(link);
+						link.click();
+
+						// Cleanup
+						document.body.removeChild(link);
+						window.URL.revokeObjectURL(url);
+					}
+				},
+				onError: (error) => {
+					console.error("Download failed:", error);
+				},
+			},
+		);
 	};
 
 	const handleParseStatement = (statementId: string) => {
-		parseStatement.mutate({ id: statementId });
+		parseStatement.mutate(
+			{
+				id: statementId,
+				workspaceId: workspaceApi.workspaceId ?? "",
+			},
+			{
+				onSuccess: () => {
+					onRefreshStatements();
+					onRefreshTransactions();
+				},
+				onError: (error) => {
+					console.error("Parse failed:", error);
+				},
+			},
+		);
 	};
 
 	const handleDeleteStatement = (id: string) => {
-		deleteStatement.mutate({ id });
+		deleteStatement.mutate(
+			{
+				id,
+				workspaceId: workspaceApi.workspaceId ?? "",
+			},
+			{
+				onSuccess: () => {
+					onRefreshStatements();
+				},
+			},
+		);
 	};
 
 	const handleEditStatement = (statement: Statement) => {
@@ -146,7 +156,22 @@ export function StatementsTable({
 		openingBalance: number | null;
 		closingBalance: number | null;
 	}) => {
-		updateStatement.mutate(data);
+		updateStatement.mutate(
+			{
+				...data,
+				workspaceId: workspaceApi.workspaceId ?? "",
+			},
+			{
+				onSuccess: () => {
+					onRefreshStatements();
+					setEditDialogOpen(false);
+					setSelectedStatement(null);
+				},
+				onError: (error) => {
+					console.error("Update failed:", error);
+				},
+			},
+		);
 	};
 
 	const formatCurrency = (amount: number) => {

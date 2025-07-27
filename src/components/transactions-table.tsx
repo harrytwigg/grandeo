@@ -47,8 +47,7 @@ export function TransactionsTable({
 		data: transactionsData,
 		isLoading,
 		refetch: refetchTransactions,
-	} = api.transactions.getByAccountId.useQuery({
-		accountId,
+	} = workspaceApi.transactions.getByAccountId(accountId, {
 		page: currentPage,
 		pageSize,
 		handled: handledFilter,
@@ -63,12 +62,11 @@ export function TransactionsTable({
 		setCurrentPage(1); // Reset to first page when filter changes
 	};
 
-	const utils = api.useUtils();
-
 	const handleRefreshTransactions = () => {
 		refetchTransactions();
 		onRefreshOwedBalance?.();
-		utils.transactions.getSplitsByAccountId.invalidate({ accountId });
+		// Note: For workspace API, we'll need a different way to invalidate
+		// For now, we'll just refetch
 	};
 
 	if (isLoading) {
