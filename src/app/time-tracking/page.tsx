@@ -231,7 +231,7 @@ export default function TimeTrackingPage() {
 
 	return (
 		<DashboardLayout title="Time Tracking" showAddButton={false}>
-			<div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+			<div className="mx-auto max-w-2xl space-y-6 py-6">
 				{/* Quick Entry Form */}
 				<Card>
 					<CardHeader className="pb-4">

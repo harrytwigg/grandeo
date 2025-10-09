@@ -11,7 +11,10 @@ import { WorkspaceGuard } from "grandeo/components/workspace-guard";
 export const metadata: Metadata = {
 	title: "Grandeo - Money Tracker",
 	description: "Track your finances with ease",
-	icons: [{ rel: "icon", url: "/favicon.ico" }],
+	icons: [
+		{ rel: "icon", url: "/favicon.ico" },
+		{ rel: "manifest", url: "/manifest.json" },
+	],
 };
 
 const geist = Geist({
