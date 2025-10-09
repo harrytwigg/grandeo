@@ -42,7 +42,7 @@ export default $config({
 		const bucket = new aws.s3.Bucket(`grandeo-data-${coreEnv.BRANCH}`);
 
 		new sst.aws.Nextjs("Website", {
-			warm: 5,
+			warm: 0,
 			domain: {
 				name: coreEnv.DOMAIN_NAME,
 				redirects: [`www.${coreEnv.DOMAIN_NAME}`],
