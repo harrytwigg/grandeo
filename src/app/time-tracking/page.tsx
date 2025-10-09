@@ -187,14 +187,15 @@ export default function TimeTrackingPage() {
 
 	const selectSuggestion = (value: string) => {
 		setDescription(value);
-		// pre-fill from most recent matching entry
 		const match = descToLatest.get(value);
 		if (match) {
 			setMoneyValue(match.moneyValue);
 			setIsEnergizing(!!match.isEnergizing);
 		}
 		setOpenSuggestions(false);
-		descriptionInputRef.current?.focus();
+
+		// Close iPhone keyboard
+		descriptionInputRef.current?.blur();
 	};
 
 	// Enter no longer creates an entry. It only selects a highlighted suggestion when open.
@@ -258,10 +259,17 @@ export default function TimeTrackingPage() {
 											setDescription(e.target.value);
 											setOpenSuggestions(true);
 										}}
-										onKeyDown={onDescKeyDown}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												// Prevent default and close keyboard on iOS
+												e.preventDefault();
+												(e.target as HTMLInputElement).blur();
+												return;
+											}
+											onDescKeyDown(e);
+										}}
 										onFocus={() => setOpenSuggestions(true)}
 										onBlur={() => {
-											// allow click selection before blur closes
 											setTimeout(() => setOpenSuggestions(false), 100);
 										}}
 										className="h-12 text-base"
