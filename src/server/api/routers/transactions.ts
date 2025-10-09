@@ -757,10 +757,15 @@ export const transactionsRouter = createTRPCRouter({
 			// Process splits to calculate debts
 			for (const split of splits) {
 				// Determine the source account ID
-				const sourceAccountId = split.sourceAccountId ?? split.sourceTransactionAccountId;
+				const sourceAccountId =
+					split.sourceAccountId ?? split.sourceTransactionAccountId;
 				const targetAccountId = split.currentAccountId;
 
-				if (sourceAccountId && targetAccountId && sourceAccountId !== targetAccountId) {
+				if (
+					sourceAccountId &&
+					targetAccountId &&
+					sourceAccountId !== targetAccountId
+				) {
 					// This represents money that the source account owes to the target account
 					const sourceMap = debtMap.get(sourceAccountId);
 					if (sourceMap) {
@@ -773,7 +778,10 @@ export const transactionsRouter = createTRPCRouter({
 					const targetMap = debtMap.get(targetAccountId);
 					if (targetMap) {
 						const currentReverseDebt = targetMap.get(sourceAccountId) ?? 0;
-						targetMap.set(sourceAccountId, currentReverseDebt - split.amountInPounds);
+						targetMap.set(
+							sourceAccountId,
+							currentReverseDebt - split.amountInPounds,
+						);
 					}
 				}
 			}

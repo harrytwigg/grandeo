@@ -2,17 +2,11 @@ import "grandeo/styles/globals.css";
 
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
-import {
-	ClerkProvider,
-	SignInButton,
-	SignUpButton,
-	SignedIn,
-	SignedOut,
-	UserButton,
-} from "@clerk/nextjs";
+import { ClerkProvider, SignedIn, SignedOut } from "@clerk/nextjs";
 import { TRPCReactProvider } from "grandeo/trpc/react";
 import { WorkspaceProvider } from "grandeo/components/workspace-provider";
 import { UserInitializer } from "grandeo/components/user-initializer";
+import { WorkspaceGuard } from "grandeo/components/workspace-guard";
 
 export const metadata: Metadata = {
 	title: "Grandeo - Money Tracker",
@@ -35,7 +29,9 @@ export default function RootLayout({
 					<TRPCReactProvider>
 						<SignedIn>
 							<UserInitializer>
-								<WorkspaceProvider>{children}</WorkspaceProvider>
+								<WorkspaceProvider>
+									<WorkspaceGuard>{children}</WorkspaceGuard>
+								</WorkspaceProvider>
 							</UserInitializer>
 						</SignedIn>
 						<SignedOut>{children}</SignedOut>

@@ -205,6 +205,39 @@ export function useWorkspaceApi() {
 			download: () => api.statements.download.useMutation(),
 			parseStatement: () => api.statements.parseStatement.useMutation(),
 		},
+		// Time Tracking
+		timeTracking: {
+			getAll: (options?: { limit?: number }) =>
+				api.timeTracking.getAll.useQuery(
+					{ workspaceId: currentWorkspaceId ?? "", ...options },
+					{ enabled: !!currentWorkspaceId },
+				),
+			getLatest: () =>
+				api.timeTracking.getLatest.useQuery(
+					{ workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId },
+				),
+			getByDateRange: (startDate: Date, endDate: Date) =>
+				api.timeTracking.getByDateRange.useQuery(
+					{
+						workspaceId: currentWorkspaceId ?? "",
+						startDate,
+						endDate,
+					},
+					{ enabled: !!currentWorkspaceId },
+				),
+			getStats: (options: { startDate: Date; endDate: Date }) =>
+				api.timeTracking.getStats.useQuery(
+					{
+						workspaceId: currentWorkspaceId ?? "",
+						...options,
+					},
+					{ enabled: !!currentWorkspaceId },
+				),
+			create: () => api.timeTracking.create.useMutation(),
+			update: () => api.timeTracking.update.useMutation(),
+			delete: () => api.timeTracking.delete.useMutation(),
+		},
 		// Current workspace ID for manual usage
 		workspaceId: currentWorkspaceId,
 	};

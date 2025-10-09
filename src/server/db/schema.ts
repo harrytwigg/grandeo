@@ -294,9 +294,43 @@ export const transactionSplits = createTable(
 	],
 );
 
+export const timeEntries = createTable(
+	"time_entry",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		userId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		description: d.text({ length: 500 }).notNull(),
+		moneyValue: d.integer().notNull(), // 1-4 scale (1 = not making money, 4 = making lots of money)
+		isEnergizing: d.integer({ mode: "boolean" }).notNull(), // true = giving energy, false = draining
+		startTime: d.integer({ mode: "timestamp" }).notNull(),
+		endTime: d.integer({ mode: "timestamp" }),
+		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+	}),
+	(t) => [
+		index("time_entry_workspace_idx").on(t.workspaceId),
+		index("time_entry_user_idx").on(t.userId),
+		index("time_entry_start_time_idx").on(t.startTime),
+		index("time_entry_workspace_user_idx").on(t.workspaceId, t.userId),
+		index("time_entry_workspace_start_idx").on(t.workspaceId, t.startTime),
+	],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
 	workspaceMemberships: many(workspaceMemberships),
 	createdWorkspaces: many(workspaces),
+	timeEntries: many(timeEntries),
 }));
 
 export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
@@ -312,6 +346,7 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
 	statements: many(statements),
 	transactions: many(transactions),
 	transactionSplits: many(transactionSplits),
+	timeEntries: many(timeEntries),
 }));
 
 export const workspaceMembershipsRelations = relations(
@@ -442,3 +477,14 @@ export const transactionSplitsRelations = relations(
 		}),
 	}),
 );
+
+export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [timeEntries.workspaceId],
+		references: [workspaces.id],
+	}),
+	user: one(users, {
+		fields: [timeEntries.userId],
+		references: [users.id],
+	}),
+}));

@@ -2,6 +2,7 @@ import { accountsRouter } from "grandeo/server/api/routers/accounts";
 import { expenseCategoriesRouter } from "grandeo/server/api/routers/expense-categories";
 import { recurringExpensesRouter } from "grandeo/server/api/routers/recurring-expenses";
 import { statementsRouter } from "grandeo/server/api/routers/statements";
+import { timeTrackingRouter } from "grandeo/server/api/routers/time-tracking";
 import { transactionsRouter } from "grandeo/server/api/routers/transactions";
 import { usersRouter } from "grandeo/server/api/routers/users";
 import { workspacesRouter } from "grandeo/server/api/routers/workspaces";
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
 	recurringExpenses: recurringExpensesRouter,
 	statements: statementsRouter,
 	transactions: transactionsRouter,
+	timeTracking: timeTrackingRouter,
 });
 
 // export type definition of API

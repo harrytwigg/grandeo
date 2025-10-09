@@ -26,6 +26,7 @@ import {
 	BarChart3Icon,
 	CalendarIcon,
 	CalculatorIcon,
+	ClockIcon,
 	CreditCardIcon,
 	HomeIcon,
 	PiggyBankIcon,
@@ -100,6 +101,17 @@ export function DashboardLayout({
 											>
 												<BarChart3Icon className="h-4 w-4" />
 												<span>Analytics</span>
+											</Link>
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+									<SidebarMenuItem>
+										<SidebarMenuButton asChild>
+											<Link
+												href="/time-tracking"
+												className="flex items-center gap-3"
+											>
+												<ClockIcon className="h-4 w-4" />
+												<span>Time Tracking</span>
 											</Link>
 										</SidebarMenuButton>
 									</SidebarMenuItem>
