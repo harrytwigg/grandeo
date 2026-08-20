@@ -18,8 +18,52 @@ import {
 } from "grandeo/components/ui/select";
 import { Textarea } from "grandeo/components/ui/textarea";
 import { useWorkspaceApi } from "grandeo/components/workspace-provider";
-import { Plus, Split, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Plus, Split, Trash2 } from "lucide-react";
 import React, { useState } from "react";
+
+/**
+ * Ratios are relative weights, not percentages, so they do not need to sum to
+ * 100 - they get normalised when applied. Asymmetric ratios are listed in both
+ * directions so the share can be pointed at either account in one click.
+ */
+const SPLIT_PRESET_GROUPS: {
+	group: string;
+	presets: { label: string; ratios: number[] }[];
+}[] = [
+	{
+		group: "2-way",
+		presets: [
+			{ label: "50 / 50", ratios: [50, 50] },
+			{ label: "42 / 58", ratios: [42, 58] },
+			{ label: "58 / 42", ratios: [58, 42] },
+			{ label: "⅓ / ⅔", ratios: [1, 2] },
+			{ label: "⅔ / ⅓", ratios: [2, 1] },
+			{ label: "40 / 60", ratios: [40, 60] },
+			{ label: "60 / 40", ratios: [60, 40] },
+			{ label: "30 / 70", ratios: [30, 70] },
+			{ label: "70 / 30", ratios: [70, 30] },
+			{ label: "25 / 75", ratios: [25, 75] },
+			{ label: "75 / 25", ratios: [75, 25] },
+			{ label: "20 / 80", ratios: [20, 80] },
+			{ label: "80 / 20", ratios: [80, 20] },
+			{ label: "10 / 90", ratios: [10, 90] },
+			{ label: "90 / 10", ratios: [90, 10] },
+		],
+	},
+	{
+		group: "3-way",
+		presets: [
+			{ label: "⅓ / ⅓ / ⅓", ratios: [1, 1, 1] },
+			{ label: "50 / 25 / 25", ratios: [50, 25, 25] },
+			{ label: "25 / 50 / 25", ratios: [25, 50, 25] },
+			{ label: "25 / 25 / 50", ratios: [25, 25, 50] },
+			{ label: "40 / 40 / 20", ratios: [40, 40, 20] },
+			{ label: "20 / 40 / 40", ratios: [20, 40, 40] },
+		],
+	},
+];
+
+const roundToPence = (amount: number) => Math.round(amount * 100) / 100;
 
 interface TransactionSplit {
 	id?: string;
@@ -76,53 +120,51 @@ export function TransactionSplitDialog({
 		]);
 	};
 
-	const splitEqually = () => {
-		const numberOfSplits = splits.length;
-		const amountPerSplit = transaction.amountInPounds / numberOfSplits;
+	const applyRatio = (ratios: number[]) => {
+		const totalRatio = ratios.reduce((sum, ratio) => sum + ratio, 0);
+		if (totalRatio <= 0) return;
 
-		const updatedSplits = splits.map((split) => ({
-			...split,
-			amountInPounds: amountPerSplit,
-		}));
+		// Grow the rows if the preset needs more splits than we currently have.
+		const nextSplits: TransactionSplit[] = [...splits];
+		while (nextSplits.length < ratios.length) {
+			nextSplits.push({
+				currentAccountId: "",
+				amountInPounds: 0,
+				description: "",
+			});
+		}
 
-		setSplits(updatedSplits);
-	};
+		let allocated = 0;
+		const updatedSplits = nextSplits.map((split, index) => {
+			const ratio = ratios[index] ?? 0;
+			const isLast = index === nextSplits.length - 1;
+			// The last row absorbs the rounding remainder so the totals always
+			// reconcile to the original amount down to the penny.
+			const amountInPounds = isLast
+				? roundToPence(transaction.amountInPounds - allocated)
+				: roundToPence((transaction.amountInPounds * ratio) / totalRatio);
 
-	const addEqualSplit = () => {
-		const currentSplitsCount = splits.length;
-		const newSplitsCount = currentSplitsCount + 1;
-		const amountPerSplit = transaction.amountInPounds / newSplitsCount;
-
-		// Update existing splits to equal amounts
-		const updatedExistingSplits = splits.map((split) => ({
-			...split,
-			amountInPounds: amountPerSplit,
-		}));
-
-		// Add new split with equal amount
-		const newSplit = {
-			currentAccountId: "",
-			amountInPounds: amountPerSplit,
-			description: "",
-		};
-
-		setSplits([...updatedExistingSplits, newSplit]);
-	};
-
-	const applyPercentageSplit = (percentages: number[]) => {
-		if (percentages.length !== splits.length) return;
-
-		const updatedSplits = splits.map((split, index) => {
-			const percentage = percentages[index];
-			if (percentage === undefined) return split;
-
-			return {
-				...split,
-				amountInPounds: (transaction.amountInPounds * percentage) / 100,
-			};
+			allocated += amountInPounds;
+			return { ...split, amountInPounds };
 		});
 
 		setSplits(updatedSplits);
+	};
+
+	const splitEqually = () => {
+		applyRatio(splits.map(() => 1));
+	};
+
+	const reverseAmounts = () => {
+		const amounts = splits.map((split) => split.amountInPounds);
+
+		setSplits(
+			splits.map((split, index) => ({
+				...split,
+				amountInPounds:
+					amounts[splits.length - 1 - index] ?? split.amountInPounds,
+			})),
+		);
 	};
 
 	const removeSplit = (index: number) => {
@@ -249,8 +291,9 @@ export function TransactionSplitDialog({
 						equal {formatCurrency(transaction.amountInPounds)}.
 					</DialogDescription>
 					<DialogDescription>
-						One of the splits can be this account if you want to split 50% of
-						the transaction with another account.
+						One of the splits can be this account if you want to keep a share of
+						the transaction yourself. Use a quick split preset to set the ratio,
+						then pick an account for each row.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -317,11 +360,43 @@ export function TransactionSplitDialog({
 									>
 										Split Equally
 									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={reverseAmounts}
+										disabled={splits.length < 2}
+									>
+										<ArrowLeftRight className="mr-1 h-4 w-4" />
+										Reverse
+									</Button>
 									<Button variant="outline" size="sm" onClick={addSplit}>
 										<Plus className="mr-1 h-4 w-4" />
 										Add Split
 									</Button>
 								</div>
+							</div>
+
+							{/* Quick ratio presets - add any rows the preset needs */}
+							<div className="space-y-3">
+								{SPLIT_PRESET_GROUPS.map(({ group, presets }) => (
+									<div key={group} className="space-y-2">
+										<Label className="text-muted-foreground text-xs">
+											Quick splits ({group})
+										</Label>
+										<div className="flex flex-wrap gap-2">
+											{presets.map((preset) => (
+												<Button
+													key={preset.label}
+													variant="secondary"
+													size="sm"
+													onClick={() => applyRatio(preset.ratios)}
+												>
+													{preset.label}
+												</Button>
+											))}
+										</div>
+									</div>
+								))}
 							</div>
 
 							{splits.map((split, index) => (
