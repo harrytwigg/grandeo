@@ -3,7 +3,11 @@ import { and, count, desc, eq, gte, lte, ne } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
 import { processFileWithSchema } from "grandeo/server/bedrock";
-import { statements, transactions } from "grandeo/server/db/schema";
+import {
+	currentAccounts,
+	statements,
+	transactions,
+} from "grandeo/server/db/schema";
 import {
 	deleteFileFromS3,
 	getFileFromS3,
@@ -380,6 +384,15 @@ const handleParseStatement = async ({
 		throw new Error("Statement not found");
 	}
 
+	// Pick up any account-specific parsing instructions set from the UI, e.g.
+	// "this credit card statement shows spending as a positive number".
+	const account = await db
+		.select({ statementParsingPrompt: currentAccounts.statementParsingPrompt })
+		.from(currentAccounts)
+		.where(eq(currentAccounts.id, statement.currentAccountId))
+		.limit(1)
+		.then((res) => res[0]);
+
 	// Get statement file from S3
 	const file = await getFileFromS3(statement.sourcePathDataBucket);
 
@@ -387,7 +400,7 @@ const handleParseStatement = async ({
 		fileName: statement.sourceFileName,
 		fileBuffer: file,
 		schema: statementSchema,
-		prompt: "Parse the provided account statement",
+		prompt: buildStatementPrompt(account?.statementParsingPrompt),
 		mimeType:
 			mime.lookup(statement.sourceFileName.split(".").pop() || "") ||
 			"application/octet-stream",
@@ -466,4 +479,24 @@ const handleParseStatement = async ({
 			`Statement ${id} processing complete: ${newTransactionRecords.length} new transactions added, ${duplicateCount} transactions skipped (covered by existing statements)`,
 		);
 	}
+};
+
+const BASE_STATEMENT_PROMPT = "Parse the provided account statement";
+
+/**
+ * Combine the base parsing prompt with the account's own instructions, if any.
+ * Account instructions come last so they take precedence over the defaults for
+ * statements that don't follow the usual conventions.
+ */
+const buildStatementPrompt = (accountPrompt?: string | null) => {
+	const trimmed = accountPrompt?.trim();
+
+	if (!trimmed) {
+		return BASE_STATEMENT_PROMPT;
+	}
+
+	return `${BASE_STATEMENT_PROMPT}
+
+Additional instructions for this specific account. These override the general guidance above where they conflict:
+${trimmed}`;
 };

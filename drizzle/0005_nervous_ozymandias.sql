@@ -1,0 +1,1 @@
+ALTER TABLE `grandeo_current_account` ADD `statementParsingPrompt` text(2000);

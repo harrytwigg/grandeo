@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardLayout } from "grandeo/components/dashboard-layout";
+import { StatementParsingPromptField } from "grandeo/components/statement-parsing-prompt-field";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -69,11 +70,13 @@ export default function CurrentAccountsPage() {
 		id: string;
 		name: string;
 		accountType: string;
+		statementParsingPrompt: string;
 	} | null>(null);
 	const [newAccountName, setNewAccountName] = useState("");
 	const [newAccountType, setNewAccountType] = useState<
 		"current_account" | "credit_card"
 	>("current_account");
+	const [newAccountParsingPrompt, setNewAccountParsingPrompt] = useState("");
 
 	// TRPC queries and mutations
 	const {
@@ -92,6 +95,7 @@ export default function CurrentAccountsPage() {
 				{
 					name: newAccountName.trim(),
 					accountType: newAccountType,
+					statementParsingPrompt: newAccountParsingPrompt.trim() || null,
 					workspaceId: workspaceApi.workspaceId,
 				} as any,
 				{
@@ -100,6 +104,7 @@ export default function CurrentAccountsPage() {
 						setIsCreateDialogOpen(false);
 						setNewAccountName("");
 						setNewAccountType("current_account");
+						setNewAccountParsingPrompt("");
 					},
 				},
 			);
@@ -110,11 +115,13 @@ export default function CurrentAccountsPage() {
 		id: string;
 		name: string;
 		accountType?: string;
+		statementParsingPrompt?: string | null;
 	}) => {
 		setEditingAccount({
 			id: account.id,
 			name: account.name,
 			accountType: account.accountType || "current_account",
+			statementParsingPrompt: account.statementParsingPrompt ?? "",
 		});
 		setIsEditDialogOpen(true);
 	};
@@ -128,6 +135,8 @@ export default function CurrentAccountsPage() {
 					accountType: editingAccount.accountType as
 						| "current_account"
 						| "credit_card",
+					statementParsingPrompt:
+						editingAccount.statementParsingPrompt.trim() || null,
 					workspaceId: workspaceApi.workspaceId,
 				} as any,
 				{
@@ -227,6 +236,11 @@ export default function CurrentAccountsPage() {
 										</SelectContent>
 									</Select>
 								</div>
+								<StatementParsingPromptField
+									id="accountParsingPrompt"
+									value={newAccountParsingPrompt}
+									onChange={setNewAccountParsingPrompt}
+								/>
 							</div>
 							<DialogFooter>
 								<Button
@@ -454,7 +468,7 @@ export default function CurrentAccountsPage() {
 						<DialogHeader>
 							<DialogTitle>Edit Account</DialogTitle>
 							<DialogDescription>
-								Update the name of this bank account.
+								Update this account's details and how its statements are parsed.
 							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-4 py-4">
@@ -493,6 +507,15 @@ export default function CurrentAccountsPage() {
 									</SelectContent>
 								</Select>
 							</div>
+							<StatementParsingPromptField
+								id="editAccountParsingPrompt"
+								value={editingAccount?.statementParsingPrompt ?? ""}
+								onChange={(value) =>
+									setEditingAccount((prev) =>
+										prev ? { ...prev, statementParsingPrompt: value } : null,
+									)
+								}
+							/>
 						</div>
 						<DialogFooter>
 							<Button
