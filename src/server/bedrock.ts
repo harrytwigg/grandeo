@@ -15,11 +15,14 @@ const bedrockClient = new BedrockRuntimeClient({
 	region: env.AWS_REGION,
 });
 
-// Claude 3.5 Sonnet model ID (supports document and image processing via Converse API)
-const CLAUDE_3_5_SONNET_MODEL_ID = "anthropic.claude-3-7-sonnet-20250219-v1:0";
+// Claude Sonnet 5 (supports document and image processing via Converse API).
+// Sonnet 5 has no in-region Bedrock endpoint, so it must be reached through a
+// cross-region inference profile. We use the EU geo profile, which keeps data
+// within EU regions and covers our default region (eu-west-2).
+const CLAUDE_SONNET_MODEL_ID = "eu.anthropic.claude-sonnet-5";
 
 /**
- * Process a file with Claude 3 Sonnet (helper function)
+ * Process a file with Claude Sonnet (helper function)
  * @param prompt - The prompt describing what to do with the file
  * @param fileBuffer - The file content as a buffer
  * @param fileName - The name of the file
@@ -70,7 +73,7 @@ export const processFileWithClaude = ({
 };
 
 /**
- * Process a file with Claude 3 Sonnet and validate response with Zod schema
+ * Process a file with Claude Sonnet and validate response with Zod schema
  * @param fileName - The name of the file
  * @param fileBuffer - The file content as a buffer
  * @param schema - Zod schema for response validation
@@ -148,7 +151,7 @@ Important:
 };
 
 /**
- * Send a prompt to Claude 3 Sonnet with optional file content using the modern Converse API
+ * Send a prompt to Claude Sonnet with optional file content using the modern Converse API
  * This version allows specifying a custom filename for document processing
  * @param prompt - The text prompt to send to Claude
  * @param fileContent - Optional file content to include in the prompt (as base64 string)
@@ -232,14 +235,17 @@ export const askClaudeWithFile = ({
 				},
 			];
 
-			// Prepare the request parameters
+			// Prepare the request parameters.
+			// Sonnet 5 rejects non-default sampling parameters (temperature/topP/topK)
+			// with a validation error, so they are omitted and behaviour is steered
+			// through the system prompt instead.
 			const params = {
-				modelId: CLAUDE_3_5_SONNET_MODEL_ID,
+				modelId: CLAUDE_SONNET_MODEL_ID,
 				messages,
 				inferenceConfig: {
-					temperature: 0.7,
-					topP: 1,
-					maxTokens: 20000,
+					// Adaptive thinking is on by default on Sonnet 5 and shares this
+					// budget with the response text, so leave headroom for both.
+					maxTokens: 32000,
 				},
 				...(systemPrompt && { system: [{ text: systemPrompt }] }),
 			};
@@ -247,18 +253,23 @@ export const askClaudeWithFile = ({
 			const command = new ConverseCommand(params);
 			const response = await bedrockClient.send(command);
 
-			if (!response.output?.message?.content?.[0]) {
+			const responseBlocks = response.output?.message?.content;
+			if (!responseBlocks?.length) {
 				throw new Error("No response content received from Bedrock");
 			}
 
-			const responseContent = response.output.message.content[0];
-			if ("text" in responseContent && responseContent.text) {
-				return responseContent.text;
+			// Adaptive thinking is on by default on Sonnet 5, so the response may lead
+			// with one or more reasoningContent blocks before the answer text.
+			const textBlock = responseBlocks.find(
+				(block) => "text" in block && block.text,
+			);
+			if (textBlock && "text" in textBlock && textBlock.text) {
+				return textBlock.text;
 			}
 
 			throw new Error("Unexpected response format from Bedrock");
 		})(),
-		(error) => new Error(`Error calling Claude 3 Sonnet: ${error}`),
+		(error) => new Error(`Error calling Claude Sonnet: ${error}`),
 	);
 };
 
