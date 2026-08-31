@@ -28,9 +28,10 @@ export const env = createEnv({
 			.default("development"),
 		DATA_BUCKET_NAME: z.string(),
 		AWS_REGION: z.string().default("eu-west-2"),
-		// Bedrock model (or cross-region inference profile) used to parse statements.
-		// Overridable so the model can be changed without a code deploy.
-		BEDROCK_MODEL_ID: z.string().default("eu.anthropic.claude-sonnet-4-6"),
+		// Bedrock model (or cross-region inference profile) used to parse
+		// statements, on the Claude-in-Bedrock Messages API endpoint. Overridable
+		// so the model can be changed without a code deploy.
+		BEDROCK_MODEL_ID: z.string().default("eu.anthropic.claude-sonnet-5"),
 		CLERK_SECRET_KEY: z.string(),
 	},
 
