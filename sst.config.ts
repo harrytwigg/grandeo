@@ -58,12 +58,28 @@ export default $config({
 				CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY ?? "",
 				DATABASE_URL: process.env.DATABASE_URL ?? "",
 				DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN ?? "",
+				// Optional. Empty falls back to the default in src/env.js, so the
+				// parsing model can be changed without a code change.
+				BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID ?? "",
 			},
 			permissions: [
 				// allow bedrock access
 				{
 					effect: "allow",
 					actions: ["bedrock:*"],
+					resources: ["*"],
+				},
+				// Current Anthropic models are entitled through an AWS Marketplace
+				// subscription, and Bedrock re-checks that subscription on the caller's
+				// behalf - so InvokeModel fails with AccessDeniedException unless the
+				// role can read subscriptions. This is deliberately read-only:
+				// aws-marketplace:Subscribe is NOT granted, so the request path can
+				// never accept a paid Marketplace agreement by itself. Subscribing to a
+				// model stays a human action in the Bedrock console.
+				// This action does not support resource-level permissions.
+				{
+					effect: "allow",
+					actions: ["aws-marketplace:ViewSubscriptions"],
 					resources: ["*"],
 				},
 				// read write to the bucket
