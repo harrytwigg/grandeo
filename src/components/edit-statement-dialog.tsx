@@ -23,6 +23,21 @@ interface Statement {
 	sourceFileName: string;
 }
 
+// Parse a YYYY-MM-DD input value back to local midnight, matching how parsed
+// statement dates are constructed
+const parseDateFromInput = (value: string) => {
+	if (!value) return null;
+	const [year, month, day] = value.split("-").map(Number);
+	if (
+		typeof year !== "number" ||
+		typeof month !== "number" ||
+		typeof day !== "number"
+	) {
+		return null;
+	}
+	return new Date(year, month - 1, day);
+};
+
 interface EditStatementDialogProps {
 	statement: Statement | null;
 	open: boolean;
@@ -35,6 +50,8 @@ interface EditStatementDialogProps {
 		closingBalance: number | null;
 	}) => void;
 	isLoading?: boolean;
+	title?: string;
+	description?: string;
 }
 
 export function EditStatementDialog({
@@ -43,6 +60,8 @@ export function EditStatementDialog({
 	onOpenChange,
 	onSave,
 	isLoading = false,
+	title = "Edit Statement",
+	description = "Update the period dates and balance information for this statement.",
 }: EditStatementDialogProps) {
 	const [formData, setFormData] = useState({
 		periodStartDate: "",
@@ -53,11 +72,14 @@ export function EditStatementDialog({
 
 	// Reset form when statement changes or dialog opens
 	useEffect(() => {
-		// Format date for input (YYYY-MM-DD)
+		// Format date for input (YYYY-MM-DD), from local date parts so the day is not
+		// shifted for anyone west of UTC or on British Summer Time
 		const formatDateForInput = (date: Date | null) => {
 			if (!date) return "";
 			const d = new Date(date);
-			return d.toISOString().split("T")[0];
+			const month = `${d.getMonth() + 1}`.padStart(2, "0");
+			const day = `${d.getDate()}`.padStart(2, "0");
+			return `${d.getFullYear()}-${month}-${day}`;
 		};
 
 		if (statement && open) {
@@ -76,12 +98,8 @@ export function EditStatementDialog({
 
 		const parsedData = {
 			id: statement.id,
-			periodStartDate: formData.periodStartDate
-				? new Date(formData.periodStartDate)
-				: null,
-			periodEndDate: formData.periodEndDate
-				? new Date(formData.periodEndDate)
-				: null,
+			periodStartDate: parseDateFromInput(formData.periodStartDate),
+			periodEndDate: parseDateFromInput(formData.periodEndDate),
 			openingBalance: formData.openingBalance
 				? Number.parseFloat(formData.openingBalance)
 				: null,
@@ -104,10 +122,8 @@ export function EditStatementDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-[425px]">
 				<DialogHeader>
-					<DialogTitle>Edit Statement</DialogTitle>
-					<DialogDescription>
-						Update the period dates and balance information for this statement.
-					</DialogDescription>
+					<DialogTitle>{title}</DialogTitle>
+					<DialogDescription>{description}</DialogDescription>
 				</DialogHeader>
 				<form onSubmit={handleSubmit}>
 					<div className="grid gap-4 py-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import { EditStatementDialog } from "grandeo/components/edit-statement-dialog";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -11,6 +12,7 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "grandeo/components/ui/alert-dialog";
+import { Badge } from "grandeo/components/ui/badge";
 import { Button } from "grandeo/components/ui/button";
 import {
 	Table,
@@ -20,10 +22,10 @@ import {
 	TableHeader,
 	TableRow,
 } from "grandeo/components/ui/table";
-import { EditStatementDialog } from "grandeo/components/edit-statement-dialog";
 import { useWorkspaceApi } from "grandeo/components/workspace-provider";
 import {
 	CalendarIcon,
+	ClipboardCheckIcon,
 	DownloadIcon,
 	EditIcon,
 	FileTextIcon,
@@ -31,6 +33,7 @@ import {
 	TrashIcon,
 	UploadIcon,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 interface Statement {
@@ -44,6 +47,7 @@ interface Statement {
 }
 
 interface StatementsTableProps {
+	accountId: string;
 	statements: Statement[] | undefined;
 	onUploadClick: () => void;
 	onRefreshStatements: () => void;
@@ -51,16 +55,29 @@ interface StatementsTableProps {
 }
 
 export function StatementsTable({
+	accountId,
 	statements,
 	onUploadClick,
 	onRefreshStatements,
 	onRefreshTransactions,
 }: StatementsTableProps) {
+	const router = useRouter();
 	const workspaceApi = useWorkspaceApi();
 	// State for edit dialog
 	const [editDialogOpen, setEditDialogOpen] = useState(false);
 	const [selectedStatement, setSelectedStatement] = useState<Statement | null>(
 		null,
+	);
+
+	// Imports awaiting review, keyed by the statement they came from
+	const { data: pendingImports, refetch: refetchPendingImports } =
+		workspaceApi.statementImports.getPendingByAccountId(accountId);
+
+	const pendingImportsByStatementId = new Map(
+		pendingImports?.map((pendingImport) => [
+			pendingImport.statementId,
+			pendingImport,
+		]),
 	);
 
 	// Mutations
@@ -112,6 +129,10 @@ export function StatementsTable({
 		);
 	};
 
+	const handleReviewStatement = (statementId: string) => {
+		router.push(`/accounts/${accountId}/statements/${statementId}/review`);
+	};
+
 	const handleParseStatement = (statementId: string) => {
 		parseStatement.mutate(
 			{
@@ -122,6 +143,8 @@ export function StatementsTable({
 				onSuccess: () => {
 					onRefreshStatements();
 					onRefreshTransactions();
+					refetchPendingImports();
+					handleReviewStatement(statementId);
 				},
 				onError: (error) => {
 					console.error("Parse failed:", error);
@@ -139,6 +162,7 @@ export function StatementsTable({
 			{
 				onSuccess: () => {
 					onRefreshStatements();
+					refetchPendingImports();
 				},
 			},
 		);
@@ -278,6 +302,15 @@ export function StatementsTable({
 									<span className="text-muted-foreground text-xs">
 										transactions
 									</span>
+									{pendingImportsByStatementId.has(statement.id) && (
+										<Badge variant="secondary">
+											{
+												pendingImportsByStatementId.get(statement.id)
+													?.transactionCount
+											}{" "}
+											awaiting review
+										</Badge>
+									)}
 								</div>
 							</TableCell>
 							<TableCell>
@@ -288,6 +321,15 @@ export function StatementsTable({
 							</TableCell>
 							<TableCell className="text-right">
 								<div className="flex justify-end gap-2">
+									{pendingImportsByStatementId.has(statement.id) && (
+										<Button
+											size="sm"
+											onClick={() => handleReviewStatement(statement.id)}
+										>
+											<ClipboardCheckIcon className="mr-2 h-4 w-4" />
+											Review
+										</Button>
+									)}
 									<Button
 										variant="outline"
 										size="sm"

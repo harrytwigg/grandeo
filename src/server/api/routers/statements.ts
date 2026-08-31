@@ -1,10 +1,11 @@
-import type { Client } from "@libsql/client";
-import { and, count, desc, eq, gte, lte, ne } from "drizzle-orm";
-import type { LibSQLDatabase } from "drizzle-orm/libsql";
+import { and, count, desc, eq } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
 import { processFileWithSchema } from "grandeo/server/bedrock";
+import type { db as database } from "grandeo/server/db";
 import {
 	currentAccounts,
+	stagedTransactions,
+	statementImportBatches,
 	statements,
 	transactions,
 } from "grandeo/server/db/schema";
@@ -220,10 +221,12 @@ export const statementsRouter = createTRPCRouter({
 				throw new Error("Failed to create statement record");
 			}
 
-			return handleParseStatement({
+			const batch = await handleParseStatement({
 				id: result.id,
 				db: ctx.db,
 			});
+
+			return { statementId: result.id, batchId: batch.id };
 		}),
 
 	update: protectedProcedure
@@ -288,6 +291,12 @@ export const statementsRouter = createTRPCRouter({
 
 			// Delete the file from S3
 			await deleteFileFromS3(statement.sourcePathDataBucket);
+
+			// Remove any import batches for this statement explicitly, so a database
+			// without foreign key enforcement cannot leave an orphaned pending batch
+			await ctx.db
+				.delete(statementImportBatches)
+				.where(eq(statementImportBatches.statementId, input.id));
 
 			return ctx.db.delete(statements).where(eq(statements.id, input.id));
 		}),
@@ -354,23 +363,27 @@ export const statementsRouter = createTRPCRouter({
 				throw new Error("Statement not found or access denied");
 			}
 
-			await handleParseStatement({
+			const batch = await handleParseStatement({
 				id: input.id,
 				db: ctx.db,
 			});
+
+			return { batchId: batch.id };
 		}),
 });
 
+/**
+ * Parse a statement into a pending import batch for human review.
+ *
+ * Nothing is written to the live `transactions` table here: the extracted rows are
+ * staged, and only `statementImports.approveBatch` commits them.
+ */
 const handleParseStatement = async ({
 	id,
 	db,
 }: {
 	id: string;
-	db: LibSQLDatabase<
-		typeof import("/home/harry/Documents/grandeo/src/server/db/schema")
-	> & {
-		$client: Client;
-	};
+	db: typeof database;
 }) => {
 	// Fetch the statement to get the S3 path
 	const statement = await db
@@ -418,67 +431,89 @@ const handleParseStatement = async ({
 		transactions: parsedTransactions,
 	} = result.value;
 
-	// update the statement with parsed data
+	// A statement has at most one batch awaiting review - re-parsing replaces it
 	await db
-		.update(statements)
-		.set({
+		.update(statementImportBatches)
+		.set({ status: "discarded", updatedAt: new Date() })
+		.where(
+			and(
+				eq(statementImportBatches.statementId, id),
+				eq(statementImportBatches.status, "pending"),
+			),
+		);
+
+	// The parsed statement values are proposals too, applied on approval
+	const batch = await db
+		.insert(statementImportBatches)
+		.values({
+			workspaceId: statement.workspaceId,
+			statementId: id,
+			currentAccountId: statement.currentAccountId,
+			status: "pending",
 			periodStartDate,
 			periodEndDate,
 			openingBalance,
 			closingBalance,
 		})
-		.where(eq(statements.id, id));
+		.returning()
+		.then((res) => res[0]);
 
-	// Create transaction records from parsed data, checking for duplicates per transaction
+	if (!batch) {
+		throw new Error("Failed to create statement import batch");
+	}
+
 	if (parsedTransactions && parsedTransactions.length > 0) {
-		const validTransactions = parsedTransactions.filter(
-			(transaction): transaction is typeof transaction & { date: Date } =>
-				transaction.date !== null,
-		);
+		// Every already imported transaction on this account, used to flag rows that
+		// look like something we have imported before (a re-parse, or an overlapping
+		// statement). Flagged rows are staged unticked rather than silently dropped,
+		// so the reviewer can override the decision.
+		const existingTransactions = await db
+			.select({
+				id: transactions.id,
+				date: transactions.date,
+				amountInPounds: transactions.amountInPounds,
+			})
+			.from(transactions)
+			.where(eq(transactions.currentAccountId, statement.currentAccountId));
 
-		const newTransactionRecords = [];
-		let duplicateCount = 0;
-
-		for (const transaction of validTransactions) {
-			// Check if there are any existing statements (other than this one) that cover this transaction date
-			const existingStatements = await db
-				.select()
-				.from(statements)
-				.where(
-					and(
-						eq(statements.currentAccountId, statement.currentAccountId),
-						ne(statements.id, id), // Exclude the current statement
-						lte(statements.periodStartDate, transaction.date),
-						gte(statements.periodEndDate, transaction.date),
-					),
-				)
-				.limit(1);
-
-			// Only add the transaction if no existing statement covers this date
-			if (existingStatements.length === 0) {
-				newTransactionRecords.push({
-					workspaceId: statement.workspaceId,
-					currentAccountId: statement.currentAccountId,
-					sourceStatementId: id,
-					amountInPounds: transaction.amount,
-					description: transaction.description,
-					date: transaction.date,
-				});
-			} else {
-				duplicateCount++;
+		const existingByDateAndAmount = new Map<string, string>();
+		for (const existing of existingTransactions) {
+			const key = `${existing.date.getTime()}:${existing.amountInPounds}`;
+			if (!existingByDateAndAmount.has(key)) {
+				existingByDateAndAmount.set(key, existing.id);
 			}
 		}
 
-		// Insert only the non-duplicate transactions
-		if (newTransactionRecords.length > 0) {
-			await db.insert(transactions).values(newTransactionRecords);
-		}
+		const stagedRecords = parsedTransactions.map((transaction) => {
+			const duplicateOfTransactionId = transaction.date
+				? (existingByDateAndAmount.get(
+						`${transaction.date.getTime()}:${transaction.amount}`,
+					) ?? null)
+				: null;
 
-		// Log summary of what was processed
+			return {
+				workspaceId: statement.workspaceId,
+				batchId: batch.id,
+				amountInPounds: transaction.amount,
+				description: transaction.description,
+				date: transaction.date,
+				included: duplicateOfTransactionId === null,
+				duplicateOfTransactionId,
+			};
+		});
+
+		await db.insert(stagedTransactions).values(stagedRecords);
+
+		const duplicateCount = stagedRecords.filter(
+			(record) => record.duplicateOfTransactionId !== null,
+		).length;
+
 		console.log(
-			`Statement ${id} processing complete: ${newTransactionRecords.length} new transactions added, ${duplicateCount} transactions skipped (covered by existing statements)`,
+			`Statement ${id} staged for review: ${stagedRecords.length} transactions parsed, ${duplicateCount} flagged as possible duplicates`,
 		);
 	}
+
+	return batch;
 };
 
 const BASE_STATEMENT_PROMPT = "Parse the provided account statement";
