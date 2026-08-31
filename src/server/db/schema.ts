@@ -88,6 +88,10 @@ export const currentAccounts = createTable(
 			.references(() => workspaces.id, { onDelete: "cascade" }),
 		name: d.text({ length: 255 }).notNull(),
 		accountType: d.text({ length: 50 }).notNull().default("current_account"), // 'current_account' or 'credit_card'
+		// Free-text instructions appended to the AI prompt when parsing statements
+		// for this account, e.g. "amounts on this credit card statement are shown
+		// as positive for spending - invert the sign".
+		statementParsingPrompt: d.text({ length: 2000 }),
 		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 	}),

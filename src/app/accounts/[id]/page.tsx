@@ -3,9 +3,10 @@
 import { AccountBalanceChart } from "grandeo/components/account-balance-chart";
 import { DashboardLayout } from "grandeo/components/dashboard-layout";
 import { ManualSplitDialog } from "grandeo/components/manual-split-dialog";
+import { StatementParsingPromptField } from "grandeo/components/statement-parsing-prompt-field";
 import { StatementsTable } from "grandeo/components/statements-table";
-import { TransactionsTable } from "grandeo/components/transactions-table";
 import { TransactionSplitsTable } from "grandeo/components/transaction-splits-table";
+import { TransactionsTable } from "grandeo/components/transactions-table";
 import { Badge } from "grandeo/components/ui/badge";
 import { Button } from "grandeo/components/ui/button";
 import {
@@ -40,7 +41,7 @@ import {
 	UploadIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface AccountDetailPageProps {
 	params: {
@@ -54,6 +55,7 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 	const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 	const [newStatementFile, setNewStatementFile] = useState<File | null>(null);
 	const [isManualSplitDialogOpen, setIsManualSplitDialogOpen] = useState(false);
+	const [parsingPrompt, setParsingPrompt] = useState("");
 
 	// Workspace API queries
 	const {
@@ -77,6 +79,35 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 
 	// Mutations
 	const createStatement = workspaceApi.statements.create();
+	const updateAccount = workspaceApi.currentAccounts.update();
+
+	// Keep the editor in sync with whatever is stored against the account
+	useEffect(() => {
+		setParsingPrompt(account?.statementParsingPrompt ?? "");
+	}, [account?.statementParsingPrompt]);
+
+	const savedParsingPrompt = account?.statementParsingPrompt ?? "";
+	const hasUnsavedParsingPrompt = parsingPrompt !== savedParsingPrompt;
+
+	const handleSaveParsingPrompt = () => {
+		if (!account) {
+			return;
+		}
+
+		updateAccount.mutate(
+			{
+				id: account.id,
+				name: account.name,
+				accountType: account.accountType as "current_account" | "credit_card",
+				statementParsingPrompt: parsingPrompt.trim() || null,
+			},
+			{
+				onSuccess: () => {
+					refetchAccount();
+				},
+			},
+		);
+	};
 
 	const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
@@ -359,6 +390,47 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 									onRefreshStatements={refetchStatements}
 									onRefreshTransactions={() => {}}
 								/>
+							</CardContent>
+						</Card>
+
+						<Card>
+							<CardHeader>
+								<CardTitle>Statement Parsing</CardTitle>
+								<CardDescription>
+									Add account-specific instructions for the AI that reads
+									statements uploaded here. Saved instructions apply to new
+									uploads and to any statement you re-parse.
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<StatementParsingPromptField
+									id="accountStatementParsingPrompt"
+									label="Instructions"
+									value={parsingPrompt}
+									onChange={setParsingPrompt}
+									disabled={updateAccount.isPending}
+								/>
+								<div className="flex items-center justify-end gap-2">
+									<Button
+										variant="outline"
+										onClick={() => setParsingPrompt(savedParsingPrompt)}
+										disabled={
+											!hasUnsavedParsingPrompt || updateAccount.isPending
+										}
+									>
+										Reset
+									</Button>
+									<Button
+										onClick={handleSaveParsingPrompt}
+										disabled={
+											!hasUnsavedParsingPrompt || updateAccount.isPending
+										}
+									>
+										{updateAccount.isPending
+											? "Saving..."
+											: "Save Instructions"}
+									</Button>
+								</div>
 							</CardContent>
 						</Card>
 					</TabsContent>

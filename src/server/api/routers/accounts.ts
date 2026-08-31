@@ -1,13 +1,28 @@
 import { z } from "zod";
 
-import { and, asc, desc, eq, isNotNull, lte, gte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, lte } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
 import {
+	accountBalances,
 	currentAccounts,
 	statements,
 	transactions,
-	accountBalances,
 } from "grandeo/server/db/schema";
+
+/**
+ * Extra, account-specific context handed to the AI when parsing statements for
+ * this account. Trimmed, capped, and normalised so that an empty box clears the
+ * stored prompt rather than storing whitespace.
+ */
+const statementParsingPromptSchema = z
+	.string()
+	.max(2000, "Parsing instructions must be 2000 characters or fewer")
+	.nullish()
+	.transform((value) => {
+		const trimmed = value?.trim();
+		return trimmed ? trimmed : null;
+	})
+	.optional();
 
 export const accountsRouter = createTRPCRouter({
 	getAll: protectedProcedure
@@ -42,6 +57,7 @@ export const accountsRouter = createTRPCRouter({
 				accountType: z
 					.enum(["current_account", "credit_card"])
 					.default("current_account"),
+				statementParsingPrompt: statementParsingPromptSchema,
 				workspaceId: z.string(),
 			}),
 		)
@@ -49,6 +65,7 @@ export const accountsRouter = createTRPCRouter({
 			return ctx.db.insert(currentAccounts).values({
 				name: input.name,
 				accountType: input.accountType,
+				statementParsingPrompt: input.statementParsingPrompt ?? null,
 				workspaceId: input.workspaceId,
 			});
 		}),
@@ -59,6 +76,7 @@ export const accountsRouter = createTRPCRouter({
 				id: z.string(),
 				name: z.string().min(1, "Name is required"),
 				accountType: z.enum(["current_account", "credit_card"]).optional(),
+				statementParsingPrompt: statementParsingPromptSchema,
 			}),
 		)
 		.mutation(({ ctx, input }) => {
@@ -66,6 +84,7 @@ export const accountsRouter = createTRPCRouter({
 				name: string;
 				updatedAt: Date;
 				accountType?: "current_account" | "credit_card";
+				statementParsingPrompt?: string | null;
 			} = {
 				name: input.name,
 				updatedAt: new Date(),
@@ -73,6 +92,11 @@ export const accountsRouter = createTRPCRouter({
 
 			if (input.accountType) {
 				updateData.accountType = input.accountType;
+			}
+
+			// `undefined` leaves the prompt untouched; an empty string clears it.
+			if (input.statementParsingPrompt !== undefined) {
+				updateData.statementParsingPrompt = input.statementParsingPrompt;
 			}
 
 			return ctx.db
