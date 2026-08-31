@@ -23,45 +23,29 @@ import { ArrowLeftRight, Plus, Split, Trash2 } from "lucide-react";
 import React, { useState } from "react";
 
 /**
- * Ratios are relative weights, not percentages, so they do not need to sum to
- * 100 - they get normalised when applied. Asymmetric ratios are listed in both
- * directions so the share can be pointed at either account in one click.
+ * Splits are always between exactly two accounts. Ratios are relative weights,
+ * not percentages, so they do not need to sum to 100 - they get normalised when
+ * applied. Asymmetric ratios are listed in both directions so the share can be
+ * pointed at either account in one click.
  */
-const SPLIT_PRESET_GROUPS: {
-	group: string;
-	presets: { label: string; ratios: number[] }[];
-}[] = [
-	{
-		group: "2-way",
-		presets: [
-			{ label: "50 / 50", ratios: [50, 50] },
-			{ label: "42 / 58", ratios: [42, 58] },
-			{ label: "58 / 42", ratios: [58, 42] },
-			{ label: "⅓ / ⅔", ratios: [1, 2] },
-			{ label: "⅔ / ⅓", ratios: [2, 1] },
-			{ label: "40 / 60", ratios: [40, 60] },
-			{ label: "60 / 40", ratios: [60, 40] },
-			{ label: "30 / 70", ratios: [30, 70] },
-			{ label: "70 / 30", ratios: [70, 30] },
-			{ label: "25 / 75", ratios: [25, 75] },
-			{ label: "75 / 25", ratios: [75, 25] },
-			{ label: "20 / 80", ratios: [20, 80] },
-			{ label: "80 / 20", ratios: [80, 20] },
-			{ label: "10 / 90", ratios: [10, 90] },
-			{ label: "90 / 10", ratios: [90, 10] },
-		],
-	},
-	{
-		group: "3-way",
-		presets: [
-			{ label: "⅓ / ⅓ / ⅓", ratios: [1, 1, 1] },
-			{ label: "50 / 25 / 25", ratios: [50, 25, 25] },
-			{ label: "25 / 50 / 25", ratios: [25, 50, 25] },
-			{ label: "25 / 25 / 50", ratios: [25, 25, 50] },
-			{ label: "40 / 40 / 20", ratios: [40, 40, 20] },
-			{ label: "20 / 40 / 40", ratios: [20, 40, 40] },
-		],
-	},
+const MAX_SPLITS = 2;
+
+const SPLIT_PRESETS: { label: string; ratios: number[] }[] = [
+	{ label: "50 / 50", ratios: [50, 50] },
+	{ label: "42 / 58", ratios: [42, 58] },
+	{ label: "58 / 42", ratios: [58, 42] },
+	{ label: "⅓ / ⅔", ratios: [1, 2] },
+	{ label: "⅔ / ⅓", ratios: [2, 1] },
+	{ label: "40 / 60", ratios: [40, 60] },
+	{ label: "60 / 40", ratios: [60, 40] },
+	{ label: "30 / 70", ratios: [30, 70] },
+	{ label: "70 / 30", ratios: [70, 30] },
+	{ label: "25 / 75", ratios: [25, 75] },
+	{ label: "75 / 25", ratios: [75, 25] },
+	{ label: "20 / 80", ratios: [20, 80] },
+	{ label: "80 / 20", ratios: [80, 20] },
+	{ label: "10 / 90", ratios: [10, 90] },
+	{ label: "90 / 10", ratios: [90, 10] },
 ];
 
 const roundToPence = (amount: number) => Math.round(amount * 100) / 100;
@@ -117,6 +101,8 @@ export function TransactionSplitDialog({
 	const updateHandled = workspaceApi.transactions.updateHandled();
 
 	const addSplit = () => {
+		if (splits.length >= MAX_SPLITS) return;
+
 		setSplits([
 			...splits,
 			{
@@ -133,7 +119,7 @@ export function TransactionSplitDialog({
 
 		// Grow the rows if the preset needs more splits than we currently have.
 		const nextSplits: TransactionSplit[] = [...splits];
-		while (nextSplits.length < ratios.length) {
+		while (nextSplits.length < Math.min(ratios.length, MAX_SPLITS)) {
 			nextSplits.push({
 				currentAccountId: "",
 				amountInPounds: 0,
@@ -219,7 +205,12 @@ export function TransactionSplitDialog({
 		const amountMatches =
 			Math.abs(totalAmount - transaction.amountInPounds) < 0.01;
 
-		return hasAllAccounts && amountMatches && splits.length > 0;
+		return (
+			hasAllAccounts &&
+			amountMatches &&
+			splits.length > 0 &&
+			splits.length <= MAX_SPLITS
+		);
 	};
 
 	const handleCreateSplits = () => {
@@ -317,8 +308,8 @@ export function TransactionSplitDialog({
 				<DialogHeader>
 					<DialogTitle>Split Transaction</DialogTitle>
 					<DialogDescription>
-						Split this transaction across multiple accounts. Total splits must
-						equal {formatCurrency(transaction.amountInPounds)}.
+						Split this transaction between two accounts. Total splits must equal{" "}
+						{formatCurrency(transaction.amountInPounds)}.
 					</DialogDescription>
 					<DialogDescription>
 						One of the splits can be this account if you want to keep a share of
@@ -399,34 +390,35 @@ export function TransactionSplitDialog({
 										<ArrowLeftRight className="mr-1 h-4 w-4" />
 										Reverse
 									</Button>
-									<Button variant="outline" size="sm" onClick={addSplit}>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={addSplit}
+										disabled={splits.length >= MAX_SPLITS}
+									>
 										<Plus className="mr-1 h-4 w-4" />
 										Add Split
 									</Button>
 								</div>
 							</div>
 
-							{/* Quick ratio presets - add any rows the preset needs */}
-							<div className="space-y-3">
-								{SPLIT_PRESET_GROUPS.map(({ group, presets }) => (
-									<div key={group} className="space-y-2">
-										<Label className="text-muted-foreground text-xs">
-											Quick splits ({group})
-										</Label>
-										<div className="flex flex-wrap gap-2">
-											{presets.map((preset) => (
-												<Button
-													key={preset.label}
-													variant="secondary"
-													size="sm"
-													onClick={() => applyRatio(preset.ratios)}
-												>
-													{preset.label}
-												</Button>
-											))}
-										</div>
-									</div>
-								))}
+							{/* Quick ratio presets - add the second row if it is missing */}
+							<div className="space-y-2">
+								<Label className="text-muted-foreground text-xs">
+									Quick splits
+								</Label>
+								<div className="flex flex-wrap gap-2">
+									{SPLIT_PRESETS.map((preset) => (
+										<Button
+											key={preset.label}
+											variant="secondary"
+											size="sm"
+											onClick={() => applyRatio(preset.ratios)}
+										>
+											{preset.label}
+										</Button>
+									))}
+								</div>
 							</div>
 
 							{splits.map((split, index) => (

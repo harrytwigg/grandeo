@@ -210,7 +210,8 @@ export const transactionsRouter = createTRPCRouter({
 							description: z.string().nullable().optional(),
 						}),
 					)
-					.min(1, "At least one split is required"),
+					.min(1, "At least one split is required")
+					.max(2, "A transaction can only be split between two accounts"),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
