@@ -2,7 +2,6 @@ import {
 	BedrockRuntimeClient,
 	type ContentBlock,
 	ConverseCommand,
-	InvokeModelCommand,
 	type Message,
 } from "@aws-sdk/client-bedrock-runtime";
 import { env } from "grandeo/env";
@@ -15,11 +14,23 @@ const bedrockClient = new BedrockRuntimeClient({
 	region: env.AWS_REGION,
 });
 
-// Claude Sonnet 5 (supports document and image processing via Converse API).
-// Sonnet 5 has no in-region Bedrock endpoint, so it must be reached through a
-// cross-region inference profile. We use the EU geo profile, which keeps data
-// within EU regions and covers our default region (eu-west-2).
-const CLAUDE_SONNET_MODEL_ID = "eu.anthropic.claude-sonnet-5";
+// Bedrock model used for statement parsing, reached through the Converse API so
+// we can pass PDFs and images as native document/image content blocks.
+//
+// Two constraints pin this value down:
+//   1. Converse needs a model with an ARN-versioned Bedrock model ID. Sonnet 5,
+//      Opus 5 and the 4.7/4.8 family have no such ID - on Bedrock they are only
+//      reachable through InvokeModel, which speaks the native Messages API shape
+//      rather than Converse. Pointing Converse at them returns AccessDenied.
+//   2. Newer models are served through cross-region inference rather than
+//      on-demand throughput, so the ID needs a geo prefix. We use `eu.` to keep
+//      data in EU regions, covering our default region (eu-west-2).
+//
+// Overridable via BEDROCK_MODEL_ID so the model can be changed without a deploy
+// (e.g. `global.anthropic.claude-sonnet-4-6` to drop the regional premium).
+// Whichever model is used must be granted to the AWS account under
+// Bedrock > Model access, or every call fails with AccessDeniedException.
+const CLAUDE_SONNET_MODEL_ID = env.BEDROCK_MODEL_ID;
 
 /**
  * Process a file with Claude Sonnet (helper function)
@@ -235,16 +246,15 @@ export const askClaudeWithFile = ({
 				},
 			];
 
-			// Prepare the request parameters.
-			// Sonnet 5 rejects non-default sampling parameters (temperature/topP/topK)
-			// with a validation error, so they are omitted and behaviour is steered
-			// through the system prompt instead.
+			// Prepare the request parameters. Sampling parameters (temperature/topP/
+			// topK) are left at their defaults and behaviour is steered through the
+			// system prompt instead.
 			const params = {
 				modelId: CLAUDE_SONNET_MODEL_ID,
 				messages,
 				inferenceConfig: {
-					// Adaptive thinking is on by default on Sonnet 5 and shares this
-					// budget with the response text, so leave headroom for both.
+					// Thinking shares this budget with the response text, so leave
+					// headroom for both.
 					maxTokens: 32000,
 				},
 				...(systemPrompt && { system: [{ text: systemPrompt }] }),
@@ -258,8 +268,9 @@ export const askClaudeWithFile = ({
 				throw new Error("No response content received from Bedrock");
 			}
 
-			// Adaptive thinking is on by default on Sonnet 5, so the response may lead
-			// with one or more reasoningContent blocks before the answer text.
+			// The response may lead with one or more reasoningContent blocks before
+			// the answer text, so pick out the first text block rather than assuming
+			// the answer is at index 0.
 			const textBlock = responseBlocks.find(
 				(block) => "text" in block && block.text,
 			);
