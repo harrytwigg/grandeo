@@ -1,4 +1,5 @@
 import { Button } from "grandeo/components/ui/button";
+import { Checkbox } from "grandeo/components/ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -78,6 +79,7 @@ interface TransactionSplitDialogProps {
 		amountInPounds: number;
 		description: string | null;
 		currentAccountId: string;
+		handled?: boolean;
 	};
 	onSplitsCreated?: () => void;
 }
@@ -87,6 +89,9 @@ export function TransactionSplitDialog({
 	onSplitsCreated,
 }: TransactionSplitDialogProps) {
 	const [open, setOpen] = useState(false);
+	// Splitting a transaction is usually the last thing you do with it, so
+	// default to clearing it off the unhandled list once the splits land.
+	const [markAsResolved, setMarkAsResolved] = useState(true);
 	const [splits, setSplits] = useState<TransactionSplit[]>([
 		{
 			currentAccountId: transaction.currentAccountId,
@@ -108,6 +113,8 @@ export function TransactionSplitDialog({
 	const createSplits = workspaceApi.transactions.createSplits();
 
 	const deleteAllSplits = workspaceApi.transactions.deleteAllSplits();
+
+	const updateHandled = workspaceApi.transactions.updateHandled();
 
 	const addSplit = () => {
 		setSplits([
@@ -230,9 +237,31 @@ export function TransactionSplitDialog({
 			},
 			{
 				onSuccess: () => {
-					setOpen(false);
-					refetchSplits();
-					onSplitsCreated?.();
+					if (!markAsResolved) {
+						setOpen(false);
+						refetchSplits();
+						onSplitsCreated?.();
+						return;
+					}
+
+					// The splits are already saved at this point, so a failure to
+					// mark the transaction resolved must not look like a failed
+					// split - close up either way and let the refetch show the
+					// real state.
+					updateHandled.mutate(
+						{
+							id: transaction.id,
+							handled: true,
+							workspaceId: workspaceApi.workspaceId ?? "",
+						},
+						{
+							onSettled: () => {
+								setOpen(false);
+								refetchSplits();
+								onSplitsCreated?.();
+							},
+						},
+					);
 				},
 			},
 		);
@@ -265,6 +294,7 @@ export function TransactionSplitDialog({
 	// Reset splits when dialog opens
 	React.useEffect(() => {
 		if (open) {
+			setMarkAsResolved(!transaction.handled);
 			setSplits([
 				{
 					currentAccountId: transaction.currentAccountId,
@@ -524,17 +554,42 @@ export function TransactionSplitDialog({
 							</div>
 
 							{/* Action buttons */}
-							<div className="flex gap-2 pt-4">
-								<Button
-									onClick={handleCreateSplits}
-									disabled={!isValidSplit() || createSplits.isPending}
-									className="flex-1"
-								>
-									{createSplits.isPending ? "Creating..." : "Create Splits"}
-								</Button>
-								<Button variant="outline" onClick={() => setOpen(false)}>
-									Cancel
-								</Button>
+							<div className="space-y-3 pt-4">
+								<div className="flex items-center gap-2">
+									<Checkbox
+										id="mark-as-resolved"
+										checked={markAsResolved}
+										onCheckedChange={(checked) =>
+											setMarkAsResolved(checked === true)
+										}
+									/>
+									<Label
+										htmlFor="mark-as-resolved"
+										className="font-normal text-sm"
+									>
+										Mark transaction as resolved
+									</Label>
+								</div>
+								<div className="flex gap-2">
+									<Button
+										onClick={handleCreateSplits}
+										disabled={
+											!isValidSplit() ||
+											createSplits.isPending ||
+											updateHandled.isPending
+										}
+										className="flex-1"
+									>
+										{createSplits.isPending || updateHandled.isPending
+											? "Creating..."
+											: markAsResolved
+												? "Create Splits & Mark Resolved"
+												: "Create Splits"}
+									</Button>
+									<Button variant="outline" onClick={() => setOpen(false)}>
+										Cancel
+									</Button>
+								</div>
 							</div>
 						</div>
 					)}
