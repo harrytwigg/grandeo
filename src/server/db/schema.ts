@@ -298,6 +298,87 @@ export const transactionSplits = createTable(
 	],
 );
 
+export const statementImportBatches = createTable(
+	"statement_import_batch",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		statementId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => statements.id, { onDelete: "cascade" }),
+		currentAccountId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => currentAccounts.id),
+		status: d.text({ length: 50 }).notNull().default("pending"), // 'pending', 'approved', 'discarded'
+		// Proposed statement values, only written onto the statement when the batch is approved
+		periodStartDate: d.integer({ mode: "timestamp" }),
+		periodEndDate: d.integer({ mode: "timestamp" }),
+		openingBalance: d.real(),
+		closingBalance: d.real(),
+		reviewedAt: d.integer({ mode: "timestamp" }),
+		reviewedBy: d.text({ length: 255 }).references(() => users.id),
+		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+	}),
+	(t) => [
+		index("statement_import_batch_workspace_idx").on(t.workspaceId),
+		index("statement_import_batch_statement_idx").on(t.statementId),
+		index("statement_import_batch_account_idx").on(t.currentAccountId),
+		index("statement_import_batch_status_idx").on(t.status),
+		index("statement_import_batch_statement_status_idx").on(
+			t.statementId,
+			t.status,
+		),
+	],
+);
+
+export const stagedTransactions = createTable(
+	"staged_transaction",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		workspaceId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		batchId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => statementImportBatches.id, { onDelete: "cascade" }),
+		expenseCategoryId: d
+			.text({ length: 255 })
+			.references(() => expenseCategories.id),
+		amountInPounds: d.real().notNull().default(0), // Positive for credits, negative for debits
+		description: d.text({ length: 500 }),
+		// Nullable so a row the parser could not date survives review instead of being dropped
+		date: d.integer({ mode: "timestamp" }),
+		included: d.integer({ mode: "boolean" }).notNull().default(true),
+		duplicateOfTransactionId: d
+			.text({ length: 255 })
+			.references(() => transactions.id, { onDelete: "set null" }),
+		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+		updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+	}),
+	(t) => [
+		index("staged_transaction_workspace_idx").on(t.workspaceId),
+		index("staged_transaction_batch_idx").on(t.batchId),
+		index("staged_transaction_date_idx").on(t.date),
+		index("staged_transaction_expense_category_idx").on(t.expenseCategoryId),
+	],
+);
+
 export const timeEntries = createTable(
 	"time_entry",
 	(d) => ({
@@ -350,6 +431,7 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
 	statements: many(statements),
 	transactions: many(transactions),
 	transactionSplits: many(transactionSplits),
+	statementImportBatches: many(statementImportBatches),
 	timeEntries: many(timeEntries),
 }));
 
@@ -408,6 +490,7 @@ export const currentAccountsRelations = relations(
 		accountBalances: many(accountBalances),
 		statements: many(statements),
 		transactions: many(transactions),
+		statementImportBatches: many(statementImportBatches),
 	}),
 );
 
@@ -435,6 +518,7 @@ export const statementsRelations = relations(statements, ({ one, many }) => ({
 		references: [currentAccounts.id],
 	}),
 	transactions: many(transactions),
+	importBatches: many(statementImportBatches),
 }));
 
 export const transactionsRelations = relations(
@@ -478,6 +562,51 @@ export const transactionSplitsRelations = relations(
 		currentAccount: one(currentAccounts, {
 			fields: [transactionSplits.currentAccountId],
 			references: [currentAccounts.id],
+		}),
+	}),
+);
+
+export const statementImportBatchesRelations = relations(
+	statementImportBatches,
+	({ one, many }) => ({
+		workspace: one(workspaces, {
+			fields: [statementImportBatches.workspaceId],
+			references: [workspaces.id],
+		}),
+		statement: one(statements, {
+			fields: [statementImportBatches.statementId],
+			references: [statements.id],
+		}),
+		currentAccount: one(currentAccounts, {
+			fields: [statementImportBatches.currentAccountId],
+			references: [currentAccounts.id],
+		}),
+		reviewedBy: one(users, {
+			fields: [statementImportBatches.reviewedBy],
+			references: [users.id],
+		}),
+		stagedTransactions: many(stagedTransactions),
+	}),
+);
+
+export const stagedTransactionsRelations = relations(
+	stagedTransactions,
+	({ one }) => ({
+		workspace: one(workspaces, {
+			fields: [stagedTransactions.workspaceId],
+			references: [workspaces.id],
+		}),
+		batch: one(statementImportBatches, {
+			fields: [stagedTransactions.batchId],
+			references: [statementImportBatches.id],
+		}),
+		expenseCategory: one(expenseCategories, {
+			fields: [stagedTransactions.expenseCategoryId],
+			references: [expenseCategories.id],
+		}),
+		duplicateOfTransaction: one(transactions, {
+			fields: [stagedTransactions.duplicateOfTransactionId],
+			references: [transactions.id],
 		}),
 	}),
 );

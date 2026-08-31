@@ -132,10 +132,14 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 								fileName: newStatementFile.name,
 							},
 							{
-								onSuccess: () => {
+								onSuccess: (result) => {
 									refetchStatements();
 									setIsUploadDialogOpen(false);
 									setNewStatementFile(null);
+									// Extracted transactions are staged, not imported - go and check them
+									router.push(
+										`/accounts/${params.id}/statements/${result.statementId}/review`,
+									);
 								},
 							},
 						);
@@ -311,8 +315,8 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 										<CardTitle>Bank Statements</CardTitle>
 										<CardDescription>
 											View and manage uploaded bank statements for this account.
-											If overlapping statement ranges are detected, transactions
-											will not be imported to avoid duplicates.
+											Extracted transactions are staged for review, and only
+											reach this account once you approve them.
 										</CardDescription>
 									</div>
 									<Dialog
@@ -385,6 +389,7 @@ export default function AccountDetailPage({ params }: AccountDetailPageProps) {
 							</CardHeader>
 							<CardContent>
 								<StatementsTable
+									accountId={params.id}
 									statements={statements}
 									onUploadClick={() => setIsUploadDialogOpen(true)}
 									onRefreshStatements={refetchStatements}

@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import { api } from "grandeo/trpc/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createContext, useContext, useEffect, useState } from "react";
 
 interface WorkspaceContextType {
 	currentWorkspaceId: string | null;
@@ -204,6 +204,30 @@ export function useWorkspaceApi() {
 			delete: () => api.statements.delete.useMutation(),
 			download: () => api.statements.download.useMutation(),
 			parseStatement: () => api.statements.parseStatement.useMutation(),
+		},
+		// Statement Imports (staged transactions awaiting review)
+		statementImports: {
+			getPendingByAccountId: (accountId: string) =>
+				api.statementImports.getPendingByAccountId.useQuery(
+					{ accountId, workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId && !!accountId },
+				),
+			getPendingByStatementId: (statementId: string) =>
+				api.statementImports.getPendingByStatementId.useQuery(
+					{ statementId, workspaceId: currentWorkspaceId ?? "" },
+					{ enabled: !!currentWorkspaceId && !!statementId },
+				),
+			updateBatch: () => api.statementImports.updateBatch.useMutation(),
+			addStagedTransaction: () =>
+				api.statementImports.addStagedTransaction.useMutation(),
+			updateStagedTransaction: () =>
+				api.statementImports.updateStagedTransaction.useMutation(),
+			setStagedTransactionIncluded: () =>
+				api.statementImports.setStagedTransactionIncluded.useMutation(),
+			deleteStagedTransaction: () =>
+				api.statementImports.deleteStagedTransaction.useMutation(),
+			approveBatch: () => api.statementImports.approveBatch.useMutation(),
+			discardBatch: () => api.statementImports.discardBatch.useMutation(),
 		},
 		// Time Tracking
 		timeTracking: {
