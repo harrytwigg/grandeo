@@ -8,14 +8,14 @@
  *
  *   node scripts/bedrock-smoke.mjs
  *
- * Reads AWS_REGION and BEDROCK_MODEL_ID from the environment, defaulting to the
+ * Reads BEDROCK_REGION and BEDROCK_MODEL_ID from the environment, defaulting to the
  * same values as src/env.js. Credentials resolve through the standard AWS
  * chain, so an `aws sso login` / profile / env-var setup is all it needs.
  */
 import { AnthropicBedrockMantle } from "@anthropic-ai/bedrock-sdk";
 import Anthropic from "@anthropic-ai/sdk";
 
-const region = process.env.AWS_REGION || "eu-west-2";
+const region = process.env.BEDROCK_REGION || "eu-west-1";
 const modelId = process.env.BEDROCK_MODEL_ID || "anthropic.claude-sonnet-5";
 
 console.log(`region:   ${region}`);
@@ -48,12 +48,17 @@ try {
 		);
 	} else if (error instanceof Anthropic.NotFoundError) {
 		console.error(`FAIL - no such model "${modelId}" in ${region}.`);
+		console.error("Either the ID or the region is wrong:");
 		console.error(
-			'Model IDs take an "anthropic." prefix, with no geo prefix and no version suffix.',
+			'  1. IDs take an "anthropic." prefix - no geo prefix, no version suffix.',
 		);
 		console.error(
-			'e.g. "anthropic.claude-sonnet-5". Region comes from AWS_REGION, not the ID.',
+			"  2. Not every region serves this endpoint. eu-west-2 resolves no Claude",
 		);
+		console.error(
+			"     model at all; eu-west-1 does. Set BEDROCK_REGION accordingly.",
+		);
+		console.error("Run scripts/bedrock-probe.mjs to see what this account can reach.");
 	} else if (error instanceof Anthropic.BadRequestError) {
 		console.error(`FAIL - Bedrock rejected the request: ${error.message}`);
 	} else {

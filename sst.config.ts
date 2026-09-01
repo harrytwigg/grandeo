@@ -58,8 +58,12 @@ export default $config({
 				CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY ?? "",
 				DATABASE_URL: process.env.DATABASE_URL ?? "",
 				DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN ?? "",
-				// Optional. Empty falls back to the default in src/env.js, so the
-				// parsing model can be changed without a code change.
+				// Optional. Empty falls back to the defaults in src/env.js, so the
+				// parsing model and its region can be changed without a code change.
+				// BEDROCK_REGION is deliberately not AWS_REGION: the stack deploys
+				// into eu-west-2, which serves no Claude model on the Bedrock
+				// Messages API endpoint.
+				BEDROCK_REGION: process.env.BEDROCK_REGION ?? "",
 				BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID ?? "",
 			},
 			permissions: [
