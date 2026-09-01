@@ -1,7 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
-import { BedrockError, processFileWithSchema } from "grandeo/server/bedrock";
 import type { db as database } from "grandeo/server/db";
 import {
 	currentAccounts,
@@ -10,6 +9,7 @@ import {
 	statements,
 	transactions,
 } from "grandeo/server/db/schema";
+import { LlmError, processFileWithSchema } from "grandeo/server/llm";
 import {
 	deleteFileFromS3,
 	getFileFromS3,
@@ -19,6 +19,55 @@ import mime from "mime-types";
 import { z } from "zod";
 
 // What we want to extract from the file
+
+/**
+ * A date the model reported, as a Date.
+ *
+ * Models disagree about date format even when the schema asks for one: GLM 5.3
+ * answers in ISO (`2026-08-01`) where Claude answered in `DD/MM/YYYY`, so both
+ * are accepted rather than making extraction depend on which model is
+ * configured. Anything else is reported as a Zod issue - the previous version
+ * threw a bare Error from inside `.transform()`, which escapes `safeParse` and
+ * turned one badly formatted date into an uncaught 500 for the whole upload.
+ */
+const modelDate = (description: string) =>
+	z
+		.string({ description })
+		.nullable()
+		.transform((value, ctx) => {
+			if (!value) return null;
+
+			const trimmed = value.trim();
+			// DD/MM/YYYY (asked for) or YYYY-MM-DD (commonly returned anyway).
+			const slash = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+			const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
+
+			const [year, month, day] = slash
+				? [Number(slash[3]), Number(slash[2]), Number(slash[1])]
+				: iso
+					? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+					: [Number.NaN, Number.NaN, Number.NaN];
+
+			const parsed = new Date(year, month - 1, day);
+
+			// Catches both an unrecognised format and a real-looking but invalid
+			// date such as 31/02/2026, which Date would silently roll forward.
+			if (
+				Number.isNaN(parsed.getTime()) ||
+				parsed.getFullYear() !== year ||
+				parsed.getMonth() !== month - 1 ||
+				parsed.getDate() !== day
+			) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: `Expected a date as DD/MM/YYYY or YYYY-MM-DD, got "${value}"`,
+				});
+				return z.NEVER;
+			}
+
+			return parsed;
+		});
+
 const statementSchema = z.object({
 	openingBalance: z
 		.number({
@@ -32,71 +81,17 @@ const statementSchema = z.object({
 				"The closing balance of the statement, do not guess, use null if not available",
 		})
 		.nullable(),
-	periodStartDate: z
-		.string({
-			description:
-				"The start date of the statement period in DD/MM/YYYY, do not guess, use null if not available",
-		})
-		.nullable()
-		.transform((date) => {
-			if (!date) return null;
-
-			const [day, month, year] = date.split("/").map(Number);
-
-			if (
-				typeof day !== "number" ||
-				typeof month !== "number" ||
-				typeof year !== "number"
-			) {
-				throw new Error("Invalid date format");
-			}
-
-			return new Date(year, month - 1, day);
-		}),
-	periodEndDate: z
-		.string({
-			description:
-				"The end date of the statement period in DD/MM/YYYY, do not guess, use null if not available",
-		})
-		.nullable()
-		.transform((date) => {
-			if (!date) return null;
-
-			const [day, month, year] = date.split("/").map(Number);
-
-			if (
-				typeof day !== "number" ||
-				typeof month !== "number" ||
-				typeof year !== "number"
-			) {
-				throw new Error("Invalid date format");
-			}
-
-			return new Date(year, month - 1, day);
-		}),
+	periodStartDate: modelDate(
+		"The start date of the statement period in DD/MM/YYYY, do not guess, use null if not available",
+	),
+	periodEndDate: modelDate(
+		"The end date of the statement period in DD/MM/YYYY, do not guess, use null if not available",
+	),
 	transactions: z.array(
 		z.object({
-			date: z
-				.string({
-					description:
-						"The date of the transaction in DD/MM/YYY format, do not guess, use null if not available",
-				})
-				.nullable()
-				.transform((date) => {
-					if (!date) return null;
-
-					const [day, month, year] = date.split("/").map(Number);
-
-					if (
-						typeof day !== "number" ||
-						typeof month !== "number" ||
-						typeof year !== "number"
-					) {
-						throw new Error("Invalid date format");
-					}
-
-					return new Date(year, month - 1, day);
-				}),
+			date: modelDate(
+				"The date of the transaction in DD/MM/YYYY, do not guess, use null if not available",
+			),
 
 			description: z.string({
 				description:
@@ -376,14 +371,17 @@ export const statementsRouter = createTRPCRouter({
 /**
  * Surface a parse failure as something the uploader can act on.
  *
- * Parsing runs synchronously inside the upload mutation, so a Bedrock problem
- * otherwise appears as the upload itself failing with an opaque 500. A
- * BedrockError already carries an actionable message and a reason - map the
- * reason onto a tRPC code and pass the message straight through rather than
- * wrapping it again.
+ * Parsing runs synchronously inside the upload mutation, so a provider problem
+ * otherwise appears as the upload itself failing with an opaque 500. An
+ * LlmError already carries an actionable message and a reason - map the reason
+ * onto a tRPC code and pass the message straight through rather than wrapping
+ * it again.
+ *
+ * The switch is over provider-agnostic failure kinds, so swapping the parsing
+ * backend does not reach this far.
  */
 const toParseError = (error: Error): TRPCError => {
-	if (!(error instanceof BedrockError)) {
+	if (!(error instanceof LlmError)) {
 		return new TRPCError({
 			code: "INTERNAL_SERVER_ERROR",
 			message: `Could not parse this statement: ${error.message}`,

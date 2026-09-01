@@ -58,44 +58,19 @@ export default $config({
 				CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY ?? "",
 				DATABASE_URL: process.env.DATABASE_URL ?? "",
 				DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN ?? "",
+				// Required - statement parsing cannot run without it.
+				OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? "",
 				// Optional. Empty falls back to the defaults in src/env.js, so the
-				// parsing model and its region can be changed without a code change.
-				// BEDROCK_REGION is deliberately not AWS_REGION: the stack deploys
-				// into eu-west-2, which serves no Claude model on the Bedrock
-				// Messages API endpoint.
-				BEDROCK_REGION: process.env.BEDROCK_REGION ?? "",
-				BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID ?? "",
+				// model and the upstream provider can both be changed without a
+				// code change.
+				OPENROUTER_MODEL_ID: process.env.OPENROUTER_MODEL_ID ?? "",
+				OPENROUTER_PROVIDER: process.env.OPENROUTER_PROVIDER ?? "",
 			},
 			permissions: [
-				// allow bedrock access
-				{
-					effect: "allow",
-					actions: ["bedrock:*"],
-					resources: ["*"],
-				},
-				// Statement parsing calls Claude through the Bedrock Messages API
-				// endpoint (bedrock-mantle.{region}.api.aws), which is authorised
-				// under its own IAM service namespace. "bedrock:*" above does NOT
-				// grant it - without this the call fails with AccessDeniedException,
-				// the same symptom as a missing model entitlement.
-				{
-					effect: "allow",
-					actions: ["bedrock-mantle:CreateInference"],
-					resources: ["*"],
-				},
-				// Current Anthropic models are entitled through an AWS Marketplace
-				// subscription, and Bedrock re-checks that subscription on the caller's
-				// behalf - so InvokeModel fails with AccessDeniedException unless the
-				// role can read subscriptions. This is deliberately read-only:
-				// aws-marketplace:Subscribe is NOT granted, so the request path can
-				// never accept a paid Marketplace agreement by itself. Subscribing to a
-				// model stays a human action in the Bedrock console.
-				// This action does not support resource-level permissions.
-				{
-					effect: "allow",
-					actions: ["aws-marketplace:ViewSubscriptions"],
-					resources: ["*"],
-				},
+				// No Bedrock, bedrock-mantle or AWS Marketplace grants: statement
+				// parsing now leaves AWS entirely and authenticates to OpenRouter
+				// with OPENROUTER_API_KEY. Three separate IAM/entitlement grants
+				// stopped being part of the parsing path with that change.
 				// read write to the bucket
 				{
 					effect: "allow",
