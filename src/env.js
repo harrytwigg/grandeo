@@ -28,10 +28,20 @@ export const env = createEnv({
 			.default("development"),
 		DATA_BUCKET_NAME: z.string(),
 		AWS_REGION: z.string().default("eu-west-2"),
+		// Region for the Bedrock Messages API endpoint
+		// (bedrock-mantle.{BEDROCK_REGION}.api.aws), deliberately separate from
+		// AWS_REGION: that one selects the region the whole stack is deployed
+		// into, and only a subset of regions serve this endpoint at all.
+		//
+		// eu-west-1 (Ireland) is the nearest region to eu-west-2 that does -
+		// verified by probe, see scripts/bedrock-probe.mjs. It keeps statement
+		// data in the EU. eu-west-2 (London) resolves NO Claude model on this
+		// endpoint: every ID, correct or not, returns 404 there.
+		BEDROCK_REGION: z.string().default("eu-west-1"),
 		// Bedrock model used to parse statements, on the Claude-in-Bedrock
-		// Messages API endpoint. IDs take an "anthropic." prefix and nothing
-		// else - no geo prefix, no version suffix; region comes from AWS_REGION.
-		// Overridable so the model can be changed without a code deploy.
+		// Messages API endpoint. IDs take an "anthropic." provider prefix and
+		// nothing else - no geo prefix, no version suffix. Overridable so the
+		// model can be changed without a code deploy.
 		BEDROCK_MODEL_ID: z.string().default("anthropic.claude-sonnet-5"),
 		CLERK_SECRET_KEY: z.string(),
 	},
@@ -55,6 +65,7 @@ export const env = createEnv({
 		NODE_ENV: process.env.NODE_ENV,
 		DATA_BUCKET_NAME: process.env.DATA_BUCKET_NAME,
 		AWS_REGION: process.env.AWS_REGION,
+		BEDROCK_REGION: process.env.BEDROCK_REGION,
 		BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID,
 		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
 			process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,

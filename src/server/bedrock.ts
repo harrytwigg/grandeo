@@ -20,22 +20,23 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 // `bedrock-mantle:CreateInference` - a different IAM service namespace from
 // `bedrock:*`, which does NOT grant it (see sst.config.ts).
 const bedrockClient = new AnthropicBedrockMantle({
-	awsRegion: env.AWS_REGION,
+	awsRegion: env.BEDROCK_REGION,
 });
 
 // Bedrock model used for statement parsing.
 //
 // Model IDs on this endpoint carry an `anthropic.` provider prefix, no version
 // suffix, and no geo prefix. The `eu.` / `global.` prefixes are a legacy
-// bedrock-runtime cross-region-inference-profile convention that only ever
-// applied to models with ARN-versioned Bedrock IDs; current-generation models
-// (Sonnet 5, Opus 5, ...) have no such IDs and are not in that table, so an
-// `eu.` prefix here is simply an unknown model and comes back as a 404.
+// bedrock-runtime cross-region-inference-profile convention; they resolve to
+// nothing here. Probed against the real account: `anthropic.claude-sonnet-5`
+// returns 403 (a real model, pending entitlement) while both
+// `eu.anthropic.claude-sonnet-5` and `global.anthropic.claude-sonnet-5` return
+// 404 in every region tried.
 //
-// Region - and so data residency - is carried by the endpoint hostname
-// (`bedrock-mantle.{AWS_REGION}.api.aws`), not by the model ID: the request is
-// kept in the region it was sent to. AWS_REGION defaults to eu-west-2, so the
-// bare `anthropic.` ID keeps statement data in London.
+// Region is carried by the endpoint hostname, and only some regions serve this
+// endpoint - see BEDROCK_REGION in src/env.js. A model ID that is correct in
+// one region still 404s in a region that serves no Claude at all, so a 404 here
+// means "wrong ID *or* wrong region"; the error message below says both.
 //
 // We default to Sonnet 5, a current-generation model. Overridable via
 // BEDROCK_MODEL_ID so the model can be changed without a deploy - e.g.
@@ -110,7 +111,7 @@ const toBedrockError = (error: unknown): BedrockError => {
 	}
 
 	const modelId = STATEMENT_PARSING_MODEL_ID;
-	const region = env.AWS_REGION;
+	const region = env.BEDROCK_REGION;
 
 	if (error instanceof Anthropic.PermissionDeniedError) {
 		return new BedrockError({
@@ -135,7 +136,7 @@ const toBedrockError = (error: unknown): BedrockError => {
 			kind: "invalid-request",
 			modelId,
 			cause: error,
-			message: `Bedrock has no model "${modelId}" in ${region}. Check BEDROCK_MODEL_ID: on this endpoint IDs take an "anthropic." provider prefix and nothing else - no geo prefix ("eu." / "global.") and no version suffix - e.g. "anthropic.claude-sonnet-5".`,
+			message: `Bedrock has no model "${modelId}" in ${region}. This means either the ID or the region is wrong. IDs on this endpoint take an "anthropic." provider prefix and nothing else - no geo prefix ("eu." / "global.") and no version suffix - e.g. "anthropic.claude-sonnet-5". Not every AWS region serves this endpoint: eu-west-2 resolves no Claude model at all, so a correct ID still 404s there. Run scripts/bedrock-probe.mjs to see which IDs and regions this account can actually reach.`,
 		});
 	}
 
