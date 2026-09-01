@@ -25,17 +25,22 @@ const bedrockClient = new AnthropicBedrockMantle({
 
 // Bedrock model used for statement parsing.
 //
-// Model IDs on this endpoint carry an `anthropic.` provider prefix and no
-// version suffix. A geo prefix selects an inference profile: `eu.` keeps
-// inference inside EU regions (our default region is eu-west-2, which supports
-// the EU profile), `global.` routes across all regions and drops the ~10%
-// regional premium.
+// Model IDs on this endpoint carry an `anthropic.` provider prefix, no version
+// suffix, and no geo prefix. The `eu.` / `global.` prefixes are a legacy
+// bedrock-runtime cross-region-inference-profile convention that only ever
+// applied to models with ARN-versioned Bedrock IDs; current-generation models
+// (Sonnet 5, Opus 5, ...) have no such IDs and are not in that table, so an
+// `eu.` prefix here is simply an unknown model and comes back as a 404.
 //
-// We default to Sonnet 5 on the EU profile: a current-generation model, and the
-// EU prefix preserves the data-residency intent this integration has always
-// had. Overridable via BEDROCK_MODEL_ID so the model can be changed without a
-// deploy - e.g. `anthropic.claude-opus-5` for a more capable model, or
-// `global.anthropic.claude-sonnet-5` to drop the regional premium.
+// Region - and so data residency - is carried by the endpoint hostname
+// (`bedrock-mantle.{AWS_REGION}.api.aws`), not by the model ID: the request is
+// kept in the region it was sent to. AWS_REGION defaults to eu-west-2, so the
+// bare `anthropic.` ID keeps statement data in London.
+//
+// We default to Sonnet 5, a current-generation model. Overridable via
+// BEDROCK_MODEL_ID so the model can be changed without a deploy - e.g.
+// `anthropic.claude-opus-5` for a more capable model, or
+// `anthropic.claude-haiku-4-5` for a cheaper one.
 //
 // Whichever model is used must be enabled for the AWS account under
 // Bedrock > Model access, or every call fails with AccessDeniedException.
@@ -121,7 +126,7 @@ const toBedrockError = (error: unknown): BedrockError => {
 			kind: "invalid-request",
 			modelId,
 			cause: error,
-			message: `Bedrock rejected the request for "${modelId}": ${error.message}. If BEDROCK_MODEL_ID is set, check it is a valid Claude-on-Bedrock model ID (e.g. "anthropic.claude-sonnet-5", optionally with an "eu." or "global." prefix).`,
+			message: `Bedrock rejected the request for "${modelId}": ${error.message}. If BEDROCK_MODEL_ID is set, check it is a valid Claude-on-Bedrock model ID (e.g. "anthropic.claude-sonnet-5").`,
 		});
 	}
 
@@ -130,7 +135,7 @@ const toBedrockError = (error: unknown): BedrockError => {
 			kind: "invalid-request",
 			modelId,
 			cause: error,
-			message: `Bedrock has no model "${modelId}" in ${region}. Check BEDROCK_MODEL_ID, including whether the geo prefix ("eu." / "global.") is available for this model.`,
+			message: `Bedrock has no model "${modelId}" in ${region}. Check BEDROCK_MODEL_ID: on this endpoint IDs take an "anthropic." provider prefix and nothing else - no geo prefix ("eu." / "global.") and no version suffix - e.g. "anthropic.claude-sonnet-5".`,
 		});
 	}
 
