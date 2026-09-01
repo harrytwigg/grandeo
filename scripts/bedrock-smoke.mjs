@@ -58,7 +58,9 @@ try {
 		console.error(
 			"     model at all; eu-west-1 does. Set BEDROCK_REGION accordingly.",
 		);
-		console.error("Run scripts/bedrock-probe.mjs to see what this account can reach.");
+		console.error(
+			"Run scripts/bedrock-probe.mjs to see what this account can reach.",
+		);
 	} else if (error instanceof Anthropic.BadRequestError) {
 		console.error(`FAIL - Bedrock rejected the request: ${error.message}`);
 	} else {
