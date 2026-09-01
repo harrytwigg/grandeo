@@ -16,7 +16,7 @@ import { AnthropicBedrockMantle } from "@anthropic-ai/bedrock-sdk";
 import Anthropic from "@anthropic-ai/sdk";
 
 const region = process.env.AWS_REGION || "eu-west-2";
-const modelId = process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-5";
+const modelId = process.env.BEDROCK_MODEL_ID || "anthropic.claude-sonnet-5";
 
 console.log(`region:   ${region}`);
 console.log(`model:    ${modelId}`);
@@ -49,7 +49,10 @@ try {
 	} else if (error instanceof Anthropic.NotFoundError) {
 		console.error(`FAIL - no such model "${modelId}" in ${region}.`);
 		console.error(
-			'Model IDs take an "anthropic." prefix, optionally "eu." or "global." before it.',
+			'Model IDs take an "anthropic." prefix, with no geo prefix and no version suffix.',
+		);
+		console.error(
+			'e.g. "anthropic.claude-sonnet-5". Region comes from AWS_REGION, not the ID.',
 		);
 	} else if (error instanceof Anthropic.BadRequestError) {
 		console.error(`FAIL - Bedrock rejected the request: ${error.message}`);
