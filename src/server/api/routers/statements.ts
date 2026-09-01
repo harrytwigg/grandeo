@@ -1,6 +1,7 @@
+import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "grandeo/server/api/trpc";
-import { processFileWithSchema } from "grandeo/server/bedrock";
+import { BedrockError, processFileWithSchema } from "grandeo/server/bedrock";
 import type { db as database } from "grandeo/server/db";
 import {
 	currentAccounts,
@@ -373,6 +374,60 @@ export const statementsRouter = createTRPCRouter({
 });
 
 /**
+ * Surface a parse failure as something the uploader can act on.
+ *
+ * Parsing runs synchronously inside the upload mutation, so a Bedrock problem
+ * otherwise appears as the upload itself failing with an opaque 500. A
+ * BedrockError already carries an actionable message and a reason - map the
+ * reason onto a tRPC code and pass the message straight through rather than
+ * wrapping it again.
+ */
+const toParseError = (error: Error): TRPCError => {
+	if (!(error instanceof BedrockError)) {
+		return new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: `Could not parse this statement: ${error.message}`,
+			cause: error,
+		});
+	}
+
+	switch (error.kind) {
+		case "access-denied":
+			return new TRPCError({
+				code: "PRECONDITION_FAILED",
+				message: `Statement parsing is not configured correctly. ${error.message}`,
+				cause: error,
+			});
+		case "invalid-request":
+			return new TRPCError({
+				code: "PRECONDITION_FAILED",
+				message: `Statement parsing is misconfigured. ${error.message}`,
+				cause: error,
+			});
+		case "rate-limited":
+		case "unavailable":
+			return new TRPCError({
+				code: "TOO_MANY_REQUESTS",
+				message: `${error.message} The statement has been uploaded - re-run parsing shortly.`,
+				cause: error,
+			});
+		case "response-truncated":
+		case "refused":
+			return new TRPCError({
+				code: "UNPROCESSABLE_CONTENT",
+				message: error.message,
+				cause: error,
+			});
+		default:
+			return new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: error.message,
+				cause: error,
+			});
+	}
+};
+
+/**
  * Parse a statement into a pending import batch for human review.
  *
  * Nothing is written to the live `transactions` table here: the extracted rows are
@@ -420,7 +475,7 @@ const handleParseStatement = async ({
 	});
 
 	if (result.isErr()) {
-		throw new Error(`Error processing statement file: ${result.error.message}`);
+		throw toParseError(result.error);
 	}
 
 	const {

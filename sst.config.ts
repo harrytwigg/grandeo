@@ -69,6 +69,16 @@ export default $config({
 					actions: ["bedrock:*"],
 					resources: ["*"],
 				},
+				// Statement parsing calls Claude through the Bedrock Messages API
+				// endpoint (bedrock-mantle.{region}.api.aws), which is authorised
+				// under its own IAM service namespace. "bedrock:*" above does NOT
+				// grant it - without this the call fails with AccessDeniedException,
+				// the same symptom as a missing model entitlement.
+				{
+					effect: "allow",
+					actions: ["bedrock-mantle:CreateInference"],
+					resources: ["*"],
+				},
 				// Current Anthropic models are entitled through an AWS Marketplace
 				// subscription, and Bedrock re-checks that subscription on the caller's
 				// behalf - so InvokeModel fails with AccessDeniedException unless the

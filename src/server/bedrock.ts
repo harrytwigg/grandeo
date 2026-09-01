@@ -1,39 +1,174 @@
-import {
-	BedrockRuntimeClient,
-	type ContentBlock,
-	ConverseCommand,
-	type Message,
-} from "@aws-sdk/client-bedrock-runtime";
+import { AnthropicBedrockMantle } from "@anthropic-ai/bedrock-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { env } from "grandeo/env";
-import { ResultAsync, errAsync, okAsync } from "neverthrow";
+import { ResultAsync } from "neverthrow";
 import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-// Initialize Bedrock client
-const bedrockClient = new BedrockRuntimeClient({
-	region: env.AWS_REGION,
+// Claude is reached through the Messages API endpoint on Bedrock
+// (`https://bedrock-mantle.{region}.api.aws/anthropic`), not the older
+// bedrock-runtime Converse/InvokeModel APIs.
+//
+// The Converse API only accepts models with ARN-versioned Bedrock model IDs,
+// and Anthropic has stopped issuing those for current-generation models - so
+// that path is structurally capped at Sonnet 4.6 and the ceiling drops as
+// models retire. This endpoint speaks the same request shape as Anthropic's
+// first-party API, so moving to a newer model is a model-ID string change.
+//
+// Credentials and region resolve through the standard AWS chain, which in
+// Lambda means the execution role. Note the role needs
+// `bedrock-mantle:CreateInference` - a different IAM service namespace from
+// `bedrock:*`, which does NOT grant it (see sst.config.ts).
+const bedrockClient = new AnthropicBedrockMantle({
+	awsRegion: env.AWS_REGION,
 });
 
-// Bedrock model used for statement parsing, reached through the Converse API so
-// we can pass PDFs and images as native document/image content blocks.
+// Bedrock model used for statement parsing.
 //
-// Two constraints pin this value down:
-//   1. Converse needs a model with an ARN-versioned Bedrock model ID. Sonnet 5,
-//      Opus 5 and the 4.7/4.8 family have no such ID - on Bedrock they are only
-//      reachable through InvokeModel, which speaks the native Messages API shape
-//      rather than Converse. Pointing Converse at them returns AccessDenied.
-//   2. Newer models are served through cross-region inference rather than
-//      on-demand throughput, so the ID needs a geo prefix. We use `eu.` to keep
-//      data in EU regions, covering our default region (eu-west-2).
+// Model IDs on this endpoint carry an `anthropic.` provider prefix and no
+// version suffix. A geo prefix selects an inference profile: `eu.` keeps
+// inference inside EU regions (our default region is eu-west-2, which supports
+// the EU profile), `global.` routes across all regions and drops the ~10%
+// regional premium.
 //
-// Overridable via BEDROCK_MODEL_ID so the model can be changed without a deploy
-// (e.g. `global.anthropic.claude-sonnet-4-6` to drop the regional premium).
-// Whichever model is used must be granted to the AWS account under
+// We default to Sonnet 5 on the EU profile: a current-generation model, and the
+// EU prefix preserves the data-residency intent this integration has always
+// had. Overridable via BEDROCK_MODEL_ID so the model can be changed without a
+// deploy - e.g. `anthropic.claude-opus-5` for a more capable model, or
+// `global.anthropic.claude-sonnet-5` to drop the regional premium.
+//
+// Whichever model is used must be enabled for the AWS account under
 // Bedrock > Model access, or every call fails with AccessDeniedException.
-const CLAUDE_SONNET_MODEL_ID = env.BEDROCK_MODEL_ID;
+const STATEMENT_PARSING_MODEL_ID = env.BEDROCK_MODEL_ID;
+
+// Shared by thinking and the response text, so leave headroom for both. The
+// request is streamed, which is what keeps a budget this size from tripping the
+// SDK's HTTP timeout on long documents.
+const MAX_TOKENS = 32000;
 
 /**
- * Process a file with Claude Sonnet (helper function)
+ * Why a Bedrock call failed, in terms the caller can act on.
+ *
+ * Bedrock reports a missing model entitlement and a missing IAM permission with
+ * the same `AccessDeniedException`, and its message ("<model> is not available
+ * for this account") reads like an entitlement problem in both cases - so the
+ * remedy has to be spelled out rather than inferred from the message.
+ */
+export type BedrockFailureKind =
+	| "access-denied"
+	| "invalid-request"
+	| "rate-limited"
+	| "unavailable"
+	| "response-truncated"
+	| "refused"
+	| "unknown";
+
+/**
+ * A Bedrock failure carrying an actionable message.
+ *
+ * The helpers below deliberately re-throw this untouched rather than wrapping
+ * it, so the reason survives the call chain instead of arriving at the API
+ * layer behind several layers of `Error:` prefixes.
+ */
+export class BedrockError extends Error {
+	readonly kind: BedrockFailureKind;
+	readonly modelId: string;
+
+	constructor({
+		kind,
+		message,
+		modelId,
+		cause,
+	}: {
+		kind: BedrockFailureKind;
+		message: string;
+		modelId: string;
+		cause?: unknown;
+	}) {
+		super(message, { cause });
+		this.name = "BedrockError";
+		this.kind = kind;
+		this.modelId = modelId;
+	}
+}
+
+/** True for an error that already carries an actionable reason. */
+const isBedrockError = (error: unknown): error is BedrockError =>
+	error instanceof BedrockError;
+
+/**
+ * Turn a thrown value into a BedrockError with a message that says what to do.
+ */
+const toBedrockError = (error: unknown): BedrockError => {
+	if (isBedrockError(error)) {
+		return error;
+	}
+
+	const modelId = STATEMENT_PARSING_MODEL_ID;
+	const region = env.AWS_REGION;
+
+	if (error instanceof Anthropic.PermissionDeniedError) {
+		return new BedrockError({
+			kind: "access-denied",
+			modelId,
+			cause: error,
+			message: `Bedrock denied access to "${modelId}" in ${region}. This is usually one of: the model is not enabled for the AWS account under Bedrock > Model access; or the execution role is missing "bedrock-mantle:CreateInference" (a different IAM namespace from "bedrock:*", which does not grant it). Set BEDROCK_MODEL_ID to a model the account has enabled to change it without a deploy.`,
+		});
+	}
+
+	if (error instanceof Anthropic.BadRequestError) {
+		return new BedrockError({
+			kind: "invalid-request",
+			modelId,
+			cause: error,
+			message: `Bedrock rejected the request for "${modelId}": ${error.message}. If BEDROCK_MODEL_ID is set, check it is a valid Claude-on-Bedrock model ID (e.g. "anthropic.claude-sonnet-5", optionally with an "eu." or "global." prefix).`,
+		});
+	}
+
+	if (error instanceof Anthropic.NotFoundError) {
+		return new BedrockError({
+			kind: "invalid-request",
+			modelId,
+			cause: error,
+			message: `Bedrock has no model "${modelId}" in ${region}. Check BEDROCK_MODEL_ID, including whether the geo prefix ("eu." / "global.") is available for this model.`,
+		});
+	}
+
+	if (error instanceof Anthropic.RateLimitError) {
+		return new BedrockError({
+			kind: "rate-limited",
+			modelId,
+			cause: error,
+			message: `Bedrock rate-limited the request for "${modelId}". Retry shortly.`,
+		});
+	}
+
+	if (
+		error instanceof Anthropic.APIConnectionError ||
+		(error instanceof Anthropic.APIError &&
+			typeof error.status === "number" &&
+			error.status >= 500)
+	) {
+		return new BedrockError({
+			kind: "unavailable",
+			modelId,
+			cause: error,
+			message: `Bedrock is temporarily unavailable for "${modelId}". Retry shortly.`,
+		});
+	}
+
+	return new BedrockError({
+		kind: "unknown",
+		modelId,
+		cause: error,
+		message: `Bedrock call for "${modelId}" failed: ${
+			error instanceof Error ? error.message : String(error)
+		}`,
+	});
+};
+
+/**
+ * Process a file with Claude (helper function)
  * @param prompt - The prompt describing what to do with the file
  * @param fileBuffer - The file content as a buffer
  * @param fileName - The name of the file
@@ -59,17 +194,14 @@ export const processFileWithClaude = ({
 			// Convert buffer to base64
 			const base64Content = fileBuffer.toString("base64");
 
-			// Sanitize filename for Bedrock compatibility
-			const sanitizedFileName = sanitizeDocumentFilename(fileName);
-
 			// Add file context to the prompt
-			const enhancedPrompt = `${prompt}\n\nFile: ${sanitizedFileName}\nMIME Type: ${mimeType}`;
+			const enhancedPrompt = `${prompt}\n\nFile: ${fileName}\nMIME Type: ${mimeType}`;
 
 			const result = await askClaudeWithFile({
 				prompt: enhancedPrompt,
 				fileContent: base64Content,
 				mimeType,
-				fileName: sanitizedFileName,
+				fileName,
 				systemPrompt,
 			});
 
@@ -79,12 +211,14 @@ export const processFileWithClaude = ({
 
 			return result.value;
 		})(),
-		(error) => new Error(`Error processing file with Claude: ${error}`),
+		// A BedrockError already says what went wrong and what to do about it -
+		// re-wrapping it here is what produced the old quadruple-prefixed 500.
+		(error) => toBedrockError(error),
 	);
 };
 
 /**
- * Process a file with Claude Sonnet and validate response with Zod schema
+ * Process a file with Claude and validate response with Zod schema
  * @param fileName - The name of the file
  * @param fileBuffer - The file content as a buffer
  * @param schema - Zod schema for response validation
@@ -107,7 +241,10 @@ export const processFileWithSchema = <T extends z.ZodTypeAny>({
 }): ResultAsync<z.output<T>, Error> => {
 	return ResultAsync.fromPromise(
 		(async () => {
-			// Convert Zod schema to JSON schema
+			// Convert Zod schema to JSON schema.
+			//
+			// The schema is described in the prompt rather than enforced with the
+			// structured-outputs API, which Claude on Bedrock does not support.
 			const jsonSchema = zodToJsonSchema(schema);
 
 			// Create enhanced prompt with schema requirements
@@ -142,7 +279,7 @@ Important:
 			let parsedResponse: unknown;
 			try {
 				parsedResponse = JSON.parse(response);
-			} catch (parseError) {
+			} catch {
 				// If direct parsing fails, try to extract JSON from the response
 				const jsonMatch = response.match(/\{[\s\S]*\}/);
 				if (jsonMatch?.[0]) {
@@ -157,17 +294,24 @@ Important:
 
 			return validatedResponse;
 		})(),
-		(error) => new Error(`Error processing file with schema: ${error}`),
+		(error) =>
+			isBedrockError(error)
+				? error
+				: new Error(
+						`Error processing file with schema: ${
+							error instanceof Error ? error.message : String(error)
+						}`,
+						{ cause: error },
+					),
 	);
 };
 
 /**
- * Send a prompt to Claude Sonnet with optional file content using the modern Converse API
- * This version allows specifying a custom filename for document processing
+ * Send a prompt to Claude with optional file content using the Messages API.
  * @param prompt - The text prompt to send to Claude
  * @param fileContent - Optional file content to include in the prompt (as base64 string)
  * @param mimeType - Optional MIME type of the file
- * @param fileName - Optional filename for document processing (will be sanitized)
+ * @param fileName - Optional filename, included in the prompt text for context
  * @param systemPrompt - Optional system prompt to set Claude's behavior
  * @returns ResultAsync<string, Error> - The response from Claude or error
  */
@@ -175,7 +319,6 @@ export const askClaudeWithFile = ({
 	prompt,
 	fileContent,
 	mimeType,
-	fileName,
 	systemPrompt,
 }: {
 	prompt: string;
@@ -186,37 +329,28 @@ export const askClaudeWithFile = ({
 }): ResultAsync<string, Error> => {
 	return ResultAsync.fromPromise(
 		(async () => {
-			// Prepare the message content blocks
-			const contentBlocks: ContentBlock[] = [
-				{
-					text: prompt,
-				},
-			];
+			// Document and image blocks go *before* the text block - Claude attends
+			// to a document better when the instruction follows it.
+			const contentBlocks: Anthropic.ContentBlockParam[] = [];
+			let promptText = prompt;
 
-			// Add file content if provided
 			if (fileContent && mimeType) {
-				if (mimeType.startsWith("image/")) {
-					// For images, use the image content block
+				if (isSupportedImageMediaType(mimeType)) {
 					contentBlocks.push({
-						image: {
-							format: mimeType.split("/")[1] as "png" | "jpeg" | "gif" | "webp",
-							source: {
-								bytes: Buffer.from(fileContent, "base64"),
-							},
+						type: "image",
+						source: {
+							type: "base64",
+							media_type: mimeType,
+							data: fileContent,
 						},
 					});
 				} else if (mimeType === "application/pdf") {
-					// For PDFs, use the document content block with sanitized filename
-					const sanitizedFileName = fileName
-						? sanitizeDocumentFilename(fileName)
-						: "document.pdf";
 					contentBlocks.push({
-						document: {
-							format: "pdf",
-							name: sanitizedFileName,
-							source: {
-								bytes: Buffer.from(fileContent, "base64"),
-							},
+						type: "document",
+						source: {
+							type: "base64",
+							media_type: "application/pdf",
+							data: fileContent,
 						},
 					});
 				} else {
@@ -225,82 +359,89 @@ export const askClaudeWithFile = ({
 						const decodedContent = Buffer.from(fileContent, "base64").toString(
 							"utf-8",
 						);
-						contentBlocks[0] = {
-							text: `${prompt}\n\nFile Content (${mimeType}):\n${decodedContent}`,
-						};
+						promptText = `${prompt}\n\nFile Content (${mimeType}):\n${decodedContent}`;
 					} catch (error) {
 						// If decoding fails, include the file info but note it couldn't be processed
 						console.warn(`Failed to decode file content: ${error}`);
-						contentBlocks[0] = {
-							text: `${prompt}\n\nNote: File of type ${mimeType} was provided but could not be processed as text.`,
-						};
+						promptText = `${prompt}\n\nNote: File of type ${mimeType} was provided but could not be processed as text.`;
 					}
 				}
 			}
 
-			// Prepare the conversation
-			const messages: Message[] = [
+			contentBlocks.push({ type: "text", text: promptText });
+
+			const messages: Anthropic.MessageParam[] = [
 				{
 					role: "user",
 					content: contentBlocks,
 				},
 			];
 
-			// Prepare the request parameters. Sampling parameters (temperature/topP/
-			// topK) are left at their defaults and behaviour is steered through the
-			// system prompt instead.
-			const params = {
-				modelId: CLAUDE_SONNET_MODEL_ID,
+			// Streamed so a large max_tokens cannot trip the SDK's HTTP timeout.
+			//
+			// Sampling parameters (temperature/top_p/top_k) are rejected on
+			// current-generation models and behaviour is steered through the system
+			// prompt instead. Adaptive thinking is the only supported thinking mode
+			// on these models; `budget_tokens` is rejected.
+			const stream = bedrockClient.messages.stream({
+				model: STATEMENT_PARSING_MODEL_ID,
+				max_tokens: MAX_TOKENS,
+				thinking: { type: "adaptive" },
 				messages,
-				inferenceConfig: {
-					// Thinking shares this budget with the response text, so leave
-					// headroom for both.
-					maxTokens: 32000,
-				},
-				...(systemPrompt && { system: [{ text: systemPrompt }] }),
-			};
+				...(systemPrompt && { system: systemPrompt }),
+			});
 
-			const command = new ConverseCommand(params);
-			const response = await bedrockClient.send(command);
+			const response = await stream.finalMessage();
 
-			const responseBlocks = response.output?.message?.content;
-			if (!responseBlocks?.length) {
-				throw new Error("No response content received from Bedrock");
+			if (response.stop_reason === "refusal") {
+				throw new BedrockError({
+					kind: "refused",
+					modelId: STATEMENT_PARSING_MODEL_ID,
+					message:
+						"Claude declined to process this document. If it is a legitimate statement, re-uploading or narrowing the account parsing prompt may help.",
+				});
 			}
 
-			// The response may lead with one or more reasoningContent blocks before
-			// the answer text, so pick out the first text block rather than assuming
-			// the answer is at index 0.
-			const textBlock = responseBlocks.find(
-				(block) => "text" in block && block.text,
+			if (response.stop_reason === "max_tokens") {
+				throw new BedrockError({
+					kind: "response-truncated",
+					modelId: STATEMENT_PARSING_MODEL_ID,
+					message: `Claude hit the ${MAX_TOKENS}-token response limit before finishing this document. It is likely too long to parse in one pass.`,
+				});
+			}
+
+			// The response may lead with one or more thinking blocks before the
+			// answer, so pick out the first text block rather than assuming it is at
+			// index 0.
+			const textBlock = response.content.find(
+				(block) => block.type === "text" && block.text,
 			);
-			if (textBlock && "text" in textBlock && textBlock.text) {
+
+			if (textBlock?.type === "text") {
 				return textBlock.text;
 			}
 
-			throw new Error("Unexpected response format from Bedrock");
+			throw new BedrockError({
+				kind: "unknown",
+				modelId: STATEMENT_PARSING_MODEL_ID,
+				message: "Bedrock returned no text content for this document.",
+			});
 		})(),
-		(error) => new Error(`Error calling Claude Sonnet: ${error}`),
+		(error) => toBedrockError(error),
 	);
 };
 
-/**
- * Sanitize filename for Bedrock document processing
- * Bedrock only allows alphanumeric characters, whitespace, hyphens, parentheses, and square brackets
- * No more than one consecutive whitespace character is allowed
- */
-const sanitizeDocumentFilename = (filename: string): string => {
-	return (
-		filename
-			// Replace underscores with hyphens
-			.replace(/_/g, "-")
-			// Remove any characters that aren't alphanumeric, whitespace, hyphens, parentheses, or square brackets
-			.replace(/[^a-zA-Z0-9\s\-\(\)\[\]]/g, "")
-			// Replace multiple consecutive whitespace characters with a single space
-			.replace(/\s+/g, " ")
-			// Trim whitespace from start and end
-			.trim() ||
-		// If filename is empty after sanitization, use a default name
-		"document"
-	);
-};
+/** Image media types the Messages API accepts as an image block. */
+const SUPPORTED_IMAGE_MEDIA_TYPES = [
+	"image/jpeg",
+	"image/png",
+	"image/gif",
+	"image/webp",
+] as const;
+
+type SupportedImageMediaType = (typeof SUPPORTED_IMAGE_MEDIA_TYPES)[number];
+
+const isSupportedImageMediaType = (
+	mimeType: string,
+): mimeType is SupportedImageMediaType =>
+	(SUPPORTED_IMAGE_MEDIA_TYPES as readonly string[]).includes(mimeType);
