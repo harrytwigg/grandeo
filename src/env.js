@@ -35,11 +35,14 @@ export const env = createEnv({
 		// OpenRouter model slug, "<author>/<slug>" - see https://openrouter.ai/models.
 		// Overridable so the model can be changed without a code deploy.
 		OPENROUTER_MODEL_ID: z.string().default("z-ai/glm-5.3-flash"),
-		// Upstream provider OpenRouter is allowed to route to. Pinned rather than
-		// preferred: src/server/llm/openrouter.ts sets allowFallbacks:false, so a
-		// request never silently lands at a provider nobody chose. DeepInfra is
-		// US-hosted and serves this model with structured-output support.
-		OPENROUTER_PROVIDER: z.string().default("deepinfra"),
+		// Optional pin to a single upstream provider. Left unset, OpenRouter is
+		// free to route to any provider serving OPENROUTER_MODEL_ID and to fail
+		// over between them, which is what keeps parsing available when one
+		// provider is down. Set it only to constrain which company processes
+		// statement data: src/server/llm/openrouter.ts then sets
+		// allowFallbacks:false, so the request fails rather than routing
+		// elsewhere.
+		OPENROUTER_PROVIDER: z.string().optional(),
 		CLERK_SECRET_KEY: z.string(),
 	},
 
