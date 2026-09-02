@@ -21,22 +21,28 @@ const PROVIDER_NAME = "openrouter";
  * model-access grant, and all three had to be correct before a single statement
  * could be parsed.
  *
- * Routing is pinned rather than left to OpenRouter's default fallback order -
- * see UPSTREAM_PROVIDER below.
+ * Routing is left to OpenRouter across every provider serving the configured
+ * model unless OPENROUTER_PROVIDER pins it - see UPSTREAM_PROVIDER below.
  */
 
 /**
- * Upstream providers this is allowed to route to, in order.
+ * Optional pin to a single upstream provider.
  *
- * `allowFallbacks: false` makes this a whitelist rather than a preference: if
- * the named provider cannot serve the request, the call fails instead of
- * silently landing somewhere else. Statement data is customer financial data,
- * so which company processes it is a deliberate choice and must not drift with
- * OpenRouter's availability.
+ * Unset - the default - every provider OpenRouter lists for the configured
+ * model is allowed, and OpenRouter fails over between them. A single provider
+ * going down or dropping the model then costs latency rather than every
+ * statement upload.
  *
- * Configurable via OPENROUTER_PROVIDER; defaults to DeepInfra (US-hosted).
+ * Set, it becomes a whitelist rather than a preference: the request also sets
+ * `allowFallbacks: false`, so if that provider cannot serve the request the
+ * call fails instead of landing somewhere else. That is the setting to reach
+ * for when which company processes statement data has to be a deliberate
+ * choice.
  */
 const UPSTREAM_PROVIDER = env.OPENROUTER_PROVIDER;
+
+/** How routing is described in error messages. */
+const ROUTING_LABEL = UPSTREAM_PROVIDER ?? "The upstream provider";
 
 const client = new OpenRouter({ apiKey: env.OPENROUTER_API_KEY });
 
@@ -164,7 +170,9 @@ const toLlmError = (error: unknown, modelId: string): LlmError => {
 		return new LlmError({
 			...base,
 			kind: "invalid-request",
-			message: `OpenRouter rejected the request for "${modelId}": ${error.message}. If OPENROUTER_PROVIDER is set, check that provider serves this model and supports structured outputs.`,
+			message: UPSTREAM_PROVIDER
+				? `OpenRouter rejected the request for "${modelId}": ${error.message}. OPENROUTER_PROVIDER pins routing to "${UPSTREAM_PROVIDER}" - check that provider serves this model and supports structured outputs.`
+				: `OpenRouter rejected the request for "${modelId}": ${error.message}.`,
 		});
 	}
 
@@ -198,7 +206,9 @@ const toLlmError = (error: unknown, modelId: string): LlmError => {
 		return new LlmError({
 			...base,
 			kind: "unavailable",
-			message: `${UPSTREAM_PROVIDER} is temporarily unavailable for "${modelId}". Retry shortly. Routing is pinned to that provider, so this does not fail over automatically.`,
+			message: UPSTREAM_PROVIDER
+				? `${UPSTREAM_PROVIDER} is temporarily unavailable for "${modelId}". Retry shortly. OPENROUTER_PROVIDER pins routing to that provider, so this does not fail over automatically.`
+				: `No provider was able to serve "${modelId}". Retry shortly.`,
 		});
 	}
 
@@ -232,11 +242,15 @@ export const openRouterProvider: StatementParsingProvider = {
 							: []),
 						{ role: "user" as const, content: buildContent(request) },
 					],
-					// Pinned, not preferred - see UPSTREAM_PROVIDER.
-					provider: {
-						only: [UPSTREAM_PROVIDER],
-						allowFallbacks: false,
-					},
+					// Only constrain routing when a provider is pinned; otherwise
+					// let OpenRouter use every provider serving this model, with
+					// its own fallback order. See UPSTREAM_PROVIDER.
+					...(UPSTREAM_PROVIDER && {
+						provider: {
+							only: [UPSTREAM_PROVIDER],
+							allowFallbacks: false,
+						},
+					}),
 					// Server-side PDF extraction, so PDF support does not depend on
 					// the configured model accepting PDF input.
 					plugins: [
@@ -280,7 +294,7 @@ export const openRouterProvider: StatementParsingProvider = {
 				provider: PROVIDER_NAME,
 				modelId,
 				kind: "unknown",
-				message: `${UPSTREAM_PROVIDER} returned no choices for this document.`,
+				message: `${ROUTING_LABEL} returned no choices for this document.`,
 			});
 		}
 
@@ -321,14 +335,22 @@ export const openRouterProvider: StatementParsingProvider = {
 				provider: PROVIDER_NAME,
 				modelId,
 				kind: "unknown",
-				message: `${UPSTREAM_PROVIDER} returned no text content for this document.`,
+				message: `${ROUTING_LABEL} returned no text content for this document.`,
 			});
 		}
+
+		// Without a pin, the serving provider is only knowable from the response.
+		// OpenRouter returns it as a top-level `provider`, which the SDK's result
+		// type does not declare - so read it defensively and fall back to the pin.
+		const responseProvider = (result as { provider?: unknown }).provider;
 
 		return {
 			text,
 			modelId: result.model ?? modelId,
-			servedBy: UPSTREAM_PROVIDER,
+			servedBy:
+				typeof responseProvider === "string"
+					? responseProvider
+					: UPSTREAM_PROVIDER,
 		};
 	},
 };

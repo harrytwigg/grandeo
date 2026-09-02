@@ -60,8 +60,8 @@ export default $config({
 				DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN ?? "",
 				// Required - statement parsing cannot run without it.
 				OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? "",
-				// Optional. Empty falls back to the defaults in src/env.js, so the
-				// model and the upstream provider can both be changed without a
+				// Optional. Empty falls back to src/env.js - the default model, and
+				// unpinned provider routing - so both can be changed without a
 				// code change.
 				OPENROUTER_MODEL_ID: process.env.OPENROUTER_MODEL_ID ?? "",
 				OPENROUTER_PROVIDER: process.env.OPENROUTER_PROVIDER ?? "",

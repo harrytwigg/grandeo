@@ -1,14 +1,15 @@
 /**
  * Smoke-check the statement-parsing path against the real provider.
  *
- * Makes one small call through the same SDK, model, routing pin and structured
+ * Makes one small call through the same SDK, model, routing and structured
  * output the app uses, so a key, model or routing problem shows up here rather
  * than as a failed statement upload in production.
  *
  *   node scripts/llm-smoke.mjs
  *
- * Reads OPENROUTER_API_KEY (required), OPENROUTER_MODEL_ID and
- * OPENROUTER_PROVIDER, defaulting to the same values as src/env.js.
+ * Reads OPENROUTER_API_KEY (required), OPENROUTER_MODEL_ID and the optional
+ * OPENROUTER_PROVIDER, defaulting to the same values as src/env.js - so with no
+ * provider set this exercises the same unpinned routing the app uses.
  *
  * This exists because the integration it replaced shipped twice on a model ID
  * nobody had called. One run here is the difference between "the docs say this
@@ -18,7 +19,7 @@ import { OpenRouter } from "@openrouter/sdk";
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 const modelId = process.env.OPENROUTER_MODEL_ID || "z-ai/glm-5.3-flash";
-const upstream = process.env.OPENROUTER_PROVIDER || "deepinfra";
+const upstream = process.env.OPENROUTER_PROVIDER || "";
 
 if (!apiKey) {
 	console.error("FAIL - OPENROUTER_API_KEY is not set. Nothing was tested.");
@@ -26,7 +27,11 @@ if (!apiKey) {
 }
 
 console.log(`model:    ${modelId}`);
-console.log(`provider: ${upstream} (pinned, no fallback)`);
+console.log(
+	upstream
+		? `provider: ${upstream} (pinned, no fallback)`
+		: "provider: any (unpinned - OpenRouter picks and may fail over)",
+);
 console.log("endpoint: https://openrouter.ai/api/v1/chat/completions\n");
 
 const client = new OpenRouter({ apiKey });
@@ -37,7 +42,9 @@ try {
 			model: modelId,
 			stream: false,
 			maxTokens: 200,
-			provider: { only: [upstream], allowFallbacks: false },
+			...(upstream && {
+				provider: { only: [upstream], allowFallbacks: false },
+			}),
 			responseFormat: {
 				type: "json_schema",
 				jsonSchema: {
@@ -87,7 +94,9 @@ try {
 		);
 	} else if (status === 400) {
 		console.error(
-			`\nCheck that "${upstream}" serves this model and supports structured outputs:`,
+			upstream
+				? `\nCheck that "${upstream}" serves this model and supports structured outputs:`
+				: "\nCheck which providers serve this model and support structured outputs:",
 		);
 		console.error(
 			`  curl -s https://openrouter.ai/api/v1/models/${modelId}/endpoints`,
